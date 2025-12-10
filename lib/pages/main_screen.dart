@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'adventure_page.dart';
 import 'character_list_page.dart';
+import 'more_page.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -20,6 +21,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const CharacterListPage(),
     const AdventurePage(),
+    const MorePage(), 
   ];
 
   void _onItemTapped(int index) {
@@ -48,6 +50,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.map),
             label: '冒险',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.more_horiz),
+            label: '更多',
           ),
         ],
         currentIndex: _selectedIndex,
