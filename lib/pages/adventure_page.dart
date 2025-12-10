@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/character.dart';
 import '../services/character_storage.dart';
 
@@ -437,7 +436,7 @@ class _AdventurePageState extends State<AdventurePage> {
             decoration: BoxDecoration(
               border: Border.all(color: Theme.of(context).colorScheme.primary),
               borderRadius: BorderRadius.circular(8),
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -724,7 +723,7 @@ class _AdventurePageState extends State<AdventurePage> {
   Widget _buildSectionHeader(String title) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      color: Colors.grey.withOpacity(0.05),
+      color: Colors.grey.withValues(alpha: 0.05),
       child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
     );
   }
@@ -913,12 +912,17 @@ class RollOption {
     int mod = 0;
     bool isProf = false;
 
-    if (['athletics'].contains(k)) mod = a.strengthMod;
-    else if (['acrobatics', 'sleightOfHand', 'stealth'].contains(k)) mod = a.dexterityMod;
-    else if (['arcana', 'history', 'investigation', 'nature', 'religion'].contains(k)) mod = a.intelligenceMod;
-    else if (['animalHandling', 'insight', 'medicine', 'perception', 'survival'].contains(k)) mod = a.wisdomMod;
-    else if (['deception', 'intimidation', 'performance', 'persuasion'].contains(k)) mod = a.charismaMod;
-
+    if (['athletics'].contains(k)) {
+      mod = a.strengthMod;
+    } else if (['acrobatics', 'sleightOfHand', 'stealth'].contains(k)) {
+      mod = a.dexterityMod;
+    } else if (['arcana', 'history', 'investigation', 'nature', 'religion'].contains(k)) {
+      mod = a.intelligenceMod;
+    } else if (['animalHandling', 'insight', 'medicine', 'perception', 'survival'].contains(k)) {
+      mod = a.wisdomMod;
+    } else if (['deception', 'intimidation', 'performance', 'persuasion'].contains(k)) {
+      mod = a.charismaMod;
+    }
     switch (k) {
       case 'athletics': isProf = p.athletics; break;
       case 'acrobatics': isProf = p.acrobatics; break;

@@ -69,7 +69,20 @@ class _CharacterListPageState extends State<CharacterListPage> {
         );
       } catch (e) {
         // 解码失败（比如数据损坏），静默失败并显示文字
-        print("Avatar decode error: $e");
+        //print("Avatar decode error: $e");
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("头像加载失败"),
+            content: Text("$e"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("确定"),
+              ),
+            ],
+          ),
+        );
       }
     }
 

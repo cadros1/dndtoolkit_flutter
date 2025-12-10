@@ -243,7 +243,7 @@ class AttributeStepper extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.withOpacity(0.1)),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.withValues(alpha: 0.1)),
         child: Icon(icon, size: 20),
       ),
     );

@@ -156,7 +156,20 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
       try {
         imageBytes = base64Decode(_profile.portraitBase64);
       } catch (e) {
-        print("Base64 decode error: $e");
+        //print("Base64 decode error: $e");
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("图片加载失败"),
+            content: Text("$e"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("确定"),
+              ),
+            ],
+          ),
+        );
       }
     }
 
@@ -209,7 +222,7 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
   Widget _buildAppearanceGrid() {
     return Card(
       elevation: 0, // 扁平化风格
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(

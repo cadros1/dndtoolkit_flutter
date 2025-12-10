@@ -39,17 +39,12 @@ class CharacterStorage {
     for (var entity in entities) {
       // 简单的过滤：只读取 .json 结尾的文件
       if (entity is File && entity.path.endsWith('.json')) {
-        try {
-          String content = await entity.readAsString();
-          Map<String, dynamic> jsonMap = jsonDecode(content);
-          
-          // 反序列化
-          Character c = Character.fromJson(jsonMap);
-          characters.add(c);
-        } catch (e) {
-          print("Error loading file ${entity.path}: $e");
-          // 可以选择忽略损坏的文件
-        }
+        String content = await entity.readAsString();
+        Map<String, dynamic> jsonMap = jsonDecode(content);
+        
+        // 反序列化
+        Character c = Character.fromJson(jsonMap);
+        characters.add(c);
       }
     }
     

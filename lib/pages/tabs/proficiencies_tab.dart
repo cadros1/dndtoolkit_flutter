@@ -13,8 +13,8 @@ class ProficienciesTab extends StatefulWidget {
 
 class _ProficienciesTabState extends State<ProficienciesTab> {
   // 方便访问的 getter
-  get _pro => widget.character.proficiencies;
-  get _profile => widget.character.profile;
+  Proficiencies get _pro => widget.character.proficiencies;
+  Profile get _profile => widget.character.profile;
 
   @override
   Widget build(BuildContext context) {

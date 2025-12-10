@@ -13,8 +13,8 @@ class CombatTab extends StatefulWidget {
 
 class _CombatTabState extends State<CombatTab> {
   // 便捷访问器
-  get _combat => widget.character.combat;
-  get _inv => widget.character.inventory;
+  CombatStats get _combat => widget.character.combat;
+  Inventory get _inv => widget.character.inventory;
   List<Weapon> get _weapons => widget.character.weapons;
 
   @override
