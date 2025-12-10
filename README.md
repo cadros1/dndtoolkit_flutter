@@ -1,16 +1,21 @@
-# dndtoolkit_flutter
+# DnDToolkit
 
-A new Flutter project.
+使用DnDToolkit来管理你的角色卡、快捷地进行各种检定、记录你在冒险中的状态。
 
-## Getting Started
+本仓库
 
-This project is a starting point for a Flutter application.
+## 功能
 
-A few resources to get you started if this is your first Flutter project:
+- [x] 创建、编辑角色卡
+- [x] 从适用于本程序的PDF形式角色卡中导入数据，或将数据导出为PDF
+- [x] 快捷进行各种检定
+- [x] 角色状态记录
+- [ ] 在不同设备间传递角色卡
+- [ ] 多人联机冒险
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 其它平台
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+这是DnDToolkit的Flutter版本，设计为Android平台使用。以下是其它平台的版本：
+
+- [Windows](https://github.com/cadros1/DndToolkit) - 使用WPF开发
+- [Android](https://github.com/cadros1/dndtoolkit_flutter) - 使用Flutter开发
