@@ -7,7 +7,7 @@ part 'character.g.dart';
 /// ----------------------------------------------------------------------------
 /// 武器
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class Weapon {
   String name;
   int attackBonus;
@@ -26,7 +26,7 @@ class Weapon {
 /// ----------------------------------------------------------------------------
 /// 物品与金钱
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class Inventory {
   // 货币
   int cP;
@@ -54,7 +54,7 @@ class Inventory {
 /// ----------------------------------------------------------------------------
 /// 属性
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class Attributes {
   int strength;
   int dexterity;
@@ -90,7 +90,7 @@ class Attributes {
 /// ----------------------------------------------------------------------------
 /// 基础信息&外观
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class Profile {
   String characterName;
   String playerName;
@@ -142,7 +142,7 @@ class Profile {
 /// ----------------------------------------------------------------------------
 /// 战斗数据
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class CombatStats {
   int armorClass; 
   int initiative;
@@ -195,7 +195,7 @@ class CombatStats {
 /// ----------------------------------------------------------------------------
 /// 熟练项
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class Proficiencies {
   // 豁免
   bool strengthSave;
@@ -262,7 +262,7 @@ class Proficiencies {
 /// ----------------------------------------------------------------------------
 /// 角色扮演信息
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class Roleplay {
   String personalityTraits;
   String ideals;
@@ -296,7 +296,7 @@ class Roleplay {
 /// ----------------------------------------------------------------------------
 /// 施法
 /// ----------------------------------------------------------------------------
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.pascal)
 class Spell {
   String name;
   bool isPrepared;
@@ -310,7 +310,7 @@ class Spell {
   Map<String, dynamic> toJson() => _$SpellToJson(this);
 }
 
-@JsonSerializable(explicitToJson: true)
+@JsonSerializable(explicitToJson: true, fieldRename: FieldRename.pascal)
 class SpellLevelGroup {
   int level;
   int totalSlots;
@@ -343,7 +343,7 @@ class SpellLevelGroup {
   Map<String, dynamic> toJson() => _$SpellLevelGroupToJson(this);
 }
 
-@JsonSerializable(explicitToJson: true)
+@JsonSerializable(explicitToJson: true, fieldRename: FieldRename.pascal)
 class Spellbook {
   String spellcastingClass;
   String spellcastingAbility;
@@ -373,7 +373,7 @@ class Spellbook {
 /// ----------------------------------------------------------------------------
 /// Character (根节点)
 /// ----------------------------------------------------------------------------
-@JsonSerializable(explicitToJson: true)
+@JsonSerializable(explicitToJson: true, fieldRename: FieldRename.pascal)
 class Character {
   // Dart 中通常将 Guid 存储为 String
   String id;

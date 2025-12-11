@@ -7,302 +7,302 @@ part of 'character.dart';
 // **************************************************************************
 
 Weapon _$WeaponFromJson(Map<String, dynamic> json) => Weapon(
-  name: json['name'] as String? ?? "",
-  attackBonus: (json['attackBonus'] as num?)?.toInt() ?? 0,
-  damage: json['damage'] as String? ?? "",
+  name: json['Name'] as String? ?? "",
+  attackBonus: (json['AttackBonus'] as num?)?.toInt() ?? 0,
+  damage: json['Damage'] as String? ?? "",
 );
 
 Map<String, dynamic> _$WeaponToJson(Weapon instance) => <String, dynamic>{
-  'name': instance.name,
-  'attackBonus': instance.attackBonus,
-  'damage': instance.damage,
+  'Name': instance.name,
+  'AttackBonus': instance.attackBonus,
+  'Damage': instance.damage,
 };
 
 Inventory _$InventoryFromJson(Map<String, dynamic> json) => Inventory(
-  cP: (json['cP'] as num?)?.toInt() ?? 0,
-  sP: (json['sP'] as num?)?.toInt() ?? 0,
-  eP: (json['eP'] as num?)?.toInt() ?? 0,
-  gP: (json['gP'] as num?)?.toInt() ?? 0,
-  pP: (json['pP'] as num?)?.toInt() ?? 0,
-  equipmentText: json['equipmentText'] as String? ?? "",
+  cP: (json['CP'] as num?)?.toInt() ?? 0,
+  sP: (json['SP'] as num?)?.toInt() ?? 0,
+  eP: (json['EP'] as num?)?.toInt() ?? 0,
+  gP: (json['GP'] as num?)?.toInt() ?? 0,
+  pP: (json['PP'] as num?)?.toInt() ?? 0,
+  equipmentText: json['EquipmentText'] as String? ?? "",
 );
 
 Map<String, dynamic> _$InventoryToJson(Inventory instance) => <String, dynamic>{
-  'cP': instance.cP,
-  'sP': instance.sP,
-  'eP': instance.eP,
-  'gP': instance.gP,
-  'pP': instance.pP,
-  'equipmentText': instance.equipmentText,
+  'CP': instance.cP,
+  'SP': instance.sP,
+  'EP': instance.eP,
+  'GP': instance.gP,
+  'PP': instance.pP,
+  'EquipmentText': instance.equipmentText,
 };
 
 Attributes _$AttributesFromJson(Map<String, dynamic> json) => Attributes(
-  strength: (json['strength'] as num?)?.toInt() ?? 10,
-  dexterity: (json['dexterity'] as num?)?.toInt() ?? 10,
-  constitution: (json['constitution'] as num?)?.toInt() ?? 10,
-  intelligence: (json['intelligence'] as num?)?.toInt() ?? 10,
-  wisdom: (json['wisdom'] as num?)?.toInt() ?? 10,
-  charisma: (json['charisma'] as num?)?.toInt() ?? 10,
+  strength: (json['Strength'] as num?)?.toInt() ?? 10,
+  dexterity: (json['Dexterity'] as num?)?.toInt() ?? 10,
+  constitution: (json['Constitution'] as num?)?.toInt() ?? 10,
+  intelligence: (json['Intelligence'] as num?)?.toInt() ?? 10,
+  wisdom: (json['Wisdom'] as num?)?.toInt() ?? 10,
+  charisma: (json['Charisma'] as num?)?.toInt() ?? 10,
 );
 
 Map<String, dynamic> _$AttributesToJson(Attributes instance) =>
     <String, dynamic>{
-      'strength': instance.strength,
-      'dexterity': instance.dexterity,
-      'constitution': instance.constitution,
-      'intelligence': instance.intelligence,
-      'wisdom': instance.wisdom,
-      'charisma': instance.charisma,
+      'Strength': instance.strength,
+      'Dexterity': instance.dexterity,
+      'Constitution': instance.constitution,
+      'Intelligence': instance.intelligence,
+      'Wisdom': instance.wisdom,
+      'Charisma': instance.charisma,
     };
 
 Profile _$ProfileFromJson(Map<String, dynamic> json) => Profile(
-  characterName: json['characterName'] as String? ?? "",
-  playerName: json['playerName'] as String? ?? "",
-  race: json['race'] as String? ?? "",
-  classAndLevel: json['classAndLevel'] as String? ?? "",
-  background: json['background'] as String? ?? "",
-  alignment: json['alignment'] as String? ?? "",
-  experiencePoints: (json['experiencePoints'] as num?)?.toInt() ?? 0,
-  inspiration: json['inspiration'] as String? ?? "",
-  proficiencyBonus: (json['proficiencyBonus'] as num?)?.toInt() ?? 2,
-  passivePerception: (json['passivePerception'] as num?)?.toInt() ?? 10,
-  age: json['age'] as String? ?? "",
-  height: json['height'] as String? ?? "",
-  weight: json['weight'] as String? ?? "",
-  eyes: json['eyes'] as String? ?? "",
-  skin: json['skin'] as String? ?? "",
-  hair: json['hair'] as String? ?? "",
-  portraitBase64: json['portraitBase64'] as String? ?? "",
+  characterName: json['CharacterName'] as String? ?? "",
+  playerName: json['PlayerName'] as String? ?? "",
+  race: json['Race'] as String? ?? "",
+  classAndLevel: json['ClassAndLevel'] as String? ?? "",
+  background: json['Background'] as String? ?? "",
+  alignment: json['Alignment'] as String? ?? "",
+  experiencePoints: (json['ExperiencePoints'] as num?)?.toInt() ?? 0,
+  inspiration: json['Inspiration'] as String? ?? "",
+  proficiencyBonus: (json['ProficiencyBonus'] as num?)?.toInt() ?? 2,
+  passivePerception: (json['PassivePerception'] as num?)?.toInt() ?? 10,
+  age: json['Age'] as String? ?? "",
+  height: json['Height'] as String? ?? "",
+  weight: json['Weight'] as String? ?? "",
+  eyes: json['Eyes'] as String? ?? "",
+  skin: json['Skin'] as String? ?? "",
+  hair: json['Hair'] as String? ?? "",
+  portraitBase64: json['PortraitBase64'] as String? ?? "",
 );
 
 Map<String, dynamic> _$ProfileToJson(Profile instance) => <String, dynamic>{
-  'characterName': instance.characterName,
-  'playerName': instance.playerName,
-  'race': instance.race,
-  'classAndLevel': instance.classAndLevel,
-  'background': instance.background,
-  'alignment': instance.alignment,
-  'experiencePoints': instance.experiencePoints,
-  'inspiration': instance.inspiration,
-  'proficiencyBonus': instance.proficiencyBonus,
-  'passivePerception': instance.passivePerception,
-  'age': instance.age,
-  'height': instance.height,
-  'weight': instance.weight,
-  'eyes': instance.eyes,
-  'skin': instance.skin,
-  'hair': instance.hair,
-  'portraitBase64': instance.portraitBase64,
+  'CharacterName': instance.characterName,
+  'PlayerName': instance.playerName,
+  'Race': instance.race,
+  'ClassAndLevel': instance.classAndLevel,
+  'Background': instance.background,
+  'Alignment': instance.alignment,
+  'ExperiencePoints': instance.experiencePoints,
+  'Inspiration': instance.inspiration,
+  'ProficiencyBonus': instance.proficiencyBonus,
+  'PassivePerception': instance.passivePerception,
+  'Age': instance.age,
+  'Height': instance.height,
+  'Weight': instance.weight,
+  'Eyes': instance.eyes,
+  'Skin': instance.skin,
+  'Hair': instance.hair,
+  'PortraitBase64': instance.portraitBase64,
 };
 
 CombatStats _$CombatStatsFromJson(Map<String, dynamic> json) => CombatStats(
-  armorClass: (json['armorClass'] as num?)?.toInt() ?? 10,
-  initiative: (json['initiative'] as num?)?.toInt() ?? 0,
-  speed: json['speed'] as String? ?? "",
-  hitPointsMax: (json['hitPointsMax'] as num?)?.toInt() ?? 0,
-  hitPointsCurrent: (json['hitPointsCurrent'] as num?)?.toInt() ?? 0,
-  hitPointsTemp: (json['hitPointsTemp'] as num?)?.toInt() ?? 0,
-  hitDiceTotal: json['hitDiceTotal'] as String? ?? "",
-  hitDiceCurrent: json['hitDiceCurrent'] as String? ?? "",
-  deathSuccess1: json['deathSuccess1'] as bool? ?? false,
-  deathSuccess2: json['deathSuccess2'] as bool? ?? false,
-  deathSuccess3: json['deathSuccess3'] as bool? ?? false,
-  deathFail1: json['deathFail1'] as bool? ?? false,
-  deathFail2: json['deathFail2'] as bool? ?? false,
-  deathFail3: json['deathFail3'] as bool? ?? false,
+  armorClass: (json['ArmorClass'] as num?)?.toInt() ?? 10,
+  initiative: (json['Initiative'] as num?)?.toInt() ?? 0,
+  speed: json['Speed'] as String? ?? "",
+  hitPointsMax: (json['HitPointsMax'] as num?)?.toInt() ?? 0,
+  hitPointsCurrent: (json['HitPointsCurrent'] as num?)?.toInt() ?? 0,
+  hitPointsTemp: (json['HitPointsTemp'] as num?)?.toInt() ?? 0,
+  hitDiceTotal: json['HitDiceTotal'] as String? ?? "",
+  hitDiceCurrent: json['HitDiceCurrent'] as String? ?? "",
+  deathSuccess1: json['DeathSuccess1'] as bool? ?? false,
+  deathSuccess2: json['DeathSuccess2'] as bool? ?? false,
+  deathSuccess3: json['DeathSuccess3'] as bool? ?? false,
+  deathFail1: json['DeathFail1'] as bool? ?? false,
+  deathFail2: json['DeathFail2'] as bool? ?? false,
+  deathFail3: json['DeathFail3'] as bool? ?? false,
   attacksAndSpellcastingNotes:
-      json['attacksAndSpellcastingNotes'] as String? ?? "",
-  ability: json['ability'] as String? ?? "",
+      json['AttacksAndSpellcastingNotes'] as String? ?? "",
+  ability: json['Ability'] as String? ?? "",
 );
 
 Map<String, dynamic> _$CombatStatsToJson(CombatStats instance) =>
     <String, dynamic>{
-      'armorClass': instance.armorClass,
-      'initiative': instance.initiative,
-      'speed': instance.speed,
-      'hitPointsMax': instance.hitPointsMax,
-      'hitPointsCurrent': instance.hitPointsCurrent,
-      'hitPointsTemp': instance.hitPointsTemp,
-      'hitDiceTotal': instance.hitDiceTotal,
-      'hitDiceCurrent': instance.hitDiceCurrent,
-      'deathSuccess1': instance.deathSuccess1,
-      'deathSuccess2': instance.deathSuccess2,
-      'deathSuccess3': instance.deathSuccess3,
-      'deathFail1': instance.deathFail1,
-      'deathFail2': instance.deathFail2,
-      'deathFail3': instance.deathFail3,
-      'attacksAndSpellcastingNotes': instance.attacksAndSpellcastingNotes,
-      'ability': instance.ability,
+      'ArmorClass': instance.armorClass,
+      'Initiative': instance.initiative,
+      'Speed': instance.speed,
+      'HitPointsMax': instance.hitPointsMax,
+      'HitPointsCurrent': instance.hitPointsCurrent,
+      'HitPointsTemp': instance.hitPointsTemp,
+      'HitDiceTotal': instance.hitDiceTotal,
+      'HitDiceCurrent': instance.hitDiceCurrent,
+      'DeathSuccess1': instance.deathSuccess1,
+      'DeathSuccess2': instance.deathSuccess2,
+      'DeathSuccess3': instance.deathSuccess3,
+      'DeathFail1': instance.deathFail1,
+      'DeathFail2': instance.deathFail2,
+      'DeathFail3': instance.deathFail3,
+      'AttacksAndSpellcastingNotes': instance.attacksAndSpellcastingNotes,
+      'Ability': instance.ability,
     };
 
 Proficiencies _$ProficienciesFromJson(Map<String, dynamic> json) =>
     Proficiencies(
-      strengthSave: json['strengthSave'] as bool? ?? false,
-      dexteritySave: json['dexteritySave'] as bool? ?? false,
-      constitutionSave: json['constitutionSave'] as bool? ?? false,
-      intelligenceSave: json['intelligenceSave'] as bool? ?? false,
-      wisdomSave: json['wisdomSave'] as bool? ?? false,
-      charismaSave: json['charismaSave'] as bool? ?? false,
-      athletics: json['athletics'] as bool? ?? false,
-      acrobatics: json['acrobatics'] as bool? ?? false,
-      sleightOfHand: json['sleightOfHand'] as bool? ?? false,
-      stealth: json['stealth'] as bool? ?? false,
-      arcana: json['arcana'] as bool? ?? false,
-      history: json['history'] as bool? ?? false,
-      investigation: json['investigation'] as bool? ?? false,
-      nature: json['nature'] as bool? ?? false,
-      religion: json['religion'] as bool? ?? false,
-      animalHandling: json['animalHandling'] as bool? ?? false,
-      insight: json['insight'] as bool? ?? false,
-      medicine: json['medicine'] as bool? ?? false,
-      perception: json['perception'] as bool? ?? false,
-      survival: json['survival'] as bool? ?? false,
-      deception: json['deception'] as bool? ?? false,
-      intimidation: json['intimidation'] as bool? ?? false,
-      performance: json['performance'] as bool? ?? false,
-      persuasion: json['persuasion'] as bool? ?? false,
+      strengthSave: json['StrengthSave'] as bool? ?? false,
+      dexteritySave: json['DexteritySave'] as bool? ?? false,
+      constitutionSave: json['ConstitutionSave'] as bool? ?? false,
+      intelligenceSave: json['IntelligenceSave'] as bool? ?? false,
+      wisdomSave: json['WisdomSave'] as bool? ?? false,
+      charismaSave: json['CharismaSave'] as bool? ?? false,
+      athletics: json['Athletics'] as bool? ?? false,
+      acrobatics: json['Acrobatics'] as bool? ?? false,
+      sleightOfHand: json['SleightOfHand'] as bool? ?? false,
+      stealth: json['Stealth'] as bool? ?? false,
+      arcana: json['Arcana'] as bool? ?? false,
+      history: json['History'] as bool? ?? false,
+      investigation: json['Investigation'] as bool? ?? false,
+      nature: json['Nature'] as bool? ?? false,
+      religion: json['Religion'] as bool? ?? false,
+      animalHandling: json['AnimalHandling'] as bool? ?? false,
+      insight: json['Insight'] as bool? ?? false,
+      medicine: json['Medicine'] as bool? ?? false,
+      perception: json['Perception'] as bool? ?? false,
+      survival: json['Survival'] as bool? ?? false,
+      deception: json['Deception'] as bool? ?? false,
+      intimidation: json['Intimidation'] as bool? ?? false,
+      performance: json['Performance'] as bool? ?? false,
+      persuasion: json['Persuasion'] as bool? ?? false,
       otherProficienciesAndLanguages:
-          json['otherProficienciesAndLanguages'] as String? ?? "",
+          json['OtherProficienciesAndLanguages'] as String? ?? "",
     );
 
 Map<String, dynamic> _$ProficienciesToJson(Proficiencies instance) =>
     <String, dynamic>{
-      'strengthSave': instance.strengthSave,
-      'dexteritySave': instance.dexteritySave,
-      'constitutionSave': instance.constitutionSave,
-      'intelligenceSave': instance.intelligenceSave,
-      'wisdomSave': instance.wisdomSave,
-      'charismaSave': instance.charismaSave,
-      'athletics': instance.athletics,
-      'acrobatics': instance.acrobatics,
-      'sleightOfHand': instance.sleightOfHand,
-      'stealth': instance.stealth,
-      'arcana': instance.arcana,
-      'history': instance.history,
-      'investigation': instance.investigation,
-      'nature': instance.nature,
-      'religion': instance.religion,
-      'animalHandling': instance.animalHandling,
-      'insight': instance.insight,
-      'medicine': instance.medicine,
-      'perception': instance.perception,
-      'survival': instance.survival,
-      'deception': instance.deception,
-      'intimidation': instance.intimidation,
-      'performance': instance.performance,
-      'persuasion': instance.persuasion,
-      'otherProficienciesAndLanguages': instance.otherProficienciesAndLanguages,
+      'StrengthSave': instance.strengthSave,
+      'DexteritySave': instance.dexteritySave,
+      'ConstitutionSave': instance.constitutionSave,
+      'IntelligenceSave': instance.intelligenceSave,
+      'WisdomSave': instance.wisdomSave,
+      'CharismaSave': instance.charismaSave,
+      'Athletics': instance.athletics,
+      'Acrobatics': instance.acrobatics,
+      'SleightOfHand': instance.sleightOfHand,
+      'Stealth': instance.stealth,
+      'Arcana': instance.arcana,
+      'History': instance.history,
+      'Investigation': instance.investigation,
+      'Nature': instance.nature,
+      'Religion': instance.religion,
+      'AnimalHandling': instance.animalHandling,
+      'Insight': instance.insight,
+      'Medicine': instance.medicine,
+      'Perception': instance.perception,
+      'Survival': instance.survival,
+      'Deception': instance.deception,
+      'Intimidation': instance.intimidation,
+      'Performance': instance.performance,
+      'Persuasion': instance.persuasion,
+      'OtherProficienciesAndLanguages': instance.otherProficienciesAndLanguages,
     };
 
 Roleplay _$RoleplayFromJson(Map<String, dynamic> json) => Roleplay(
-  personalityTraits: json['personalityTraits'] as String? ?? "",
-  ideals: json['ideals'] as String? ?? "",
-  bonds: json['bonds'] as String? ?? "",
-  flaws: json['flaws'] as String? ?? "",
-  characterBackstory: json['characterBackstory'] as String? ?? "",
-  alliesAndOrganizations: json['alliesAndOrganizations'] as String? ?? "",
+  personalityTraits: json['PersonalityTraits'] as String? ?? "",
+  ideals: json['Ideals'] as String? ?? "",
+  bonds: json['Bonds'] as String? ?? "",
+  flaws: json['Flaws'] as String? ?? "",
+  characterBackstory: json['CharacterBackstory'] as String? ?? "",
+  alliesAndOrganizations: json['AlliesAndOrganizations'] as String? ?? "",
   additionalFeaturesAndTraits:
-      json['additionalFeaturesAndTraits'] as String? ?? "",
-  treasure: json['treasure'] as String? ?? "",
-  characterExperience: json['characterExperience'] as String? ?? "",
-  featuresAndTraits: json['featuresAndTraits'] as String? ?? "",
+      json['AdditionalFeaturesAndTraits'] as String? ?? "",
+  treasure: json['Treasure'] as String? ?? "",
+  characterExperience: json['CharacterExperience'] as String? ?? "",
+  featuresAndTraits: json['FeaturesAndTraits'] as String? ?? "",
 );
 
 Map<String, dynamic> _$RoleplayToJson(Roleplay instance) => <String, dynamic>{
-  'personalityTraits': instance.personalityTraits,
-  'ideals': instance.ideals,
-  'bonds': instance.bonds,
-  'flaws': instance.flaws,
-  'characterBackstory': instance.characterBackstory,
-  'alliesAndOrganizations': instance.alliesAndOrganizations,
-  'additionalFeaturesAndTraits': instance.additionalFeaturesAndTraits,
-  'treasure': instance.treasure,
-  'characterExperience': instance.characterExperience,
-  'featuresAndTraits': instance.featuresAndTraits,
+  'PersonalityTraits': instance.personalityTraits,
+  'Ideals': instance.ideals,
+  'Bonds': instance.bonds,
+  'Flaws': instance.flaws,
+  'CharacterBackstory': instance.characterBackstory,
+  'AlliesAndOrganizations': instance.alliesAndOrganizations,
+  'AdditionalFeaturesAndTraits': instance.additionalFeaturesAndTraits,
+  'Treasure': instance.treasure,
+  'CharacterExperience': instance.characterExperience,
+  'FeaturesAndTraits': instance.featuresAndTraits,
 };
 
 Spell _$SpellFromJson(Map<String, dynamic> json) => Spell(
-  name: json['name'] as String? ?? "",
-  isPrepared: json['isPrepared'] as bool? ?? false,
+  name: json['Name'] as String? ?? "",
+  isPrepared: json['IsPrepared'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$SpellToJson(Spell instance) => <String, dynamic>{
-  'name': instance.name,
-  'isPrepared': instance.isPrepared,
+  'Name': instance.name,
+  'IsPrepared': instance.isPrepared,
 };
 
 SpellLevelGroup _$SpellLevelGroupFromJson(Map<String, dynamic> json) =>
     SpellLevelGroup(
-      level: (json['level'] as num?)?.toInt() ?? 0,
-      totalSlots: (json['totalSlots'] as num?)?.toInt() ?? 0,
-      remainSlots: (json['remainSlots'] as num?)?.toInt() ?? 0,
-      spells: (json['spells'] as List<dynamic>?)
+      level: (json['Level'] as num?)?.toInt() ?? 0,
+      totalSlots: (json['TotalSlots'] as num?)?.toInt() ?? 0,
+      remainSlots: (json['RemainSlots'] as num?)?.toInt() ?? 0,
+      spells: (json['Spells'] as List<dynamic>?)
           ?.map((e) => Spell.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
 
 Map<String, dynamic> _$SpellLevelGroupToJson(SpellLevelGroup instance) =>
     <String, dynamic>{
-      'level': instance.level,
-      'totalSlots': instance.totalSlots,
-      'remainSlots': instance.remainSlots,
-      'spells': instance.spells.map((e) => e.toJson()).toList(),
+      'Level': instance.level,
+      'TotalSlots': instance.totalSlots,
+      'RemainSlots': instance.remainSlots,
+      'Spells': instance.spells.map((e) => e.toJson()).toList(),
     };
 
 Spellbook _$SpellbookFromJson(Map<String, dynamic> json) => Spellbook(
-  spellcastingClass: json['spellcastingClass'] as String? ?? "",
-  spellcastingAbility: json['spellcastingAbility'] as String? ?? "",
-  spellSaveDC: (json['spellSaveDC'] as num?)?.toInt() ?? 0,
-  spellAttackBonus: (json['spellAttackBonus'] as num?)?.toInt() ?? 0,
-  allSpells: (json['allSpells'] as List<dynamic>?)
+  spellcastingClass: json['SpellcastingClass'] as String? ?? "",
+  spellcastingAbility: json['SpellcastingAbility'] as String? ?? "",
+  spellSaveDC: (json['SpellSaveDC'] as num?)?.toInt() ?? 0,
+  spellAttackBonus: (json['SpellAttackBonus'] as num?)?.toInt() ?? 0,
+  allSpells: (json['AllSpells'] as List<dynamic>?)
       ?.map((e) => SpellLevelGroup.fromJson(e as Map<String, dynamic>))
       .toList(),
 );
 
 Map<String, dynamic> _$SpellbookToJson(Spellbook instance) => <String, dynamic>{
-  'spellcastingClass': instance.spellcastingClass,
-  'spellcastingAbility': instance.spellcastingAbility,
-  'spellSaveDC': instance.spellSaveDC,
-  'spellAttackBonus': instance.spellAttackBonus,
-  'allSpells': instance.allSpells.map((e) => e.toJson()).toList(),
+  'SpellcastingClass': instance.spellcastingClass,
+  'SpellcastingAbility': instance.spellcastingAbility,
+  'SpellSaveDC': instance.spellSaveDC,
+  'SpellAttackBonus': instance.spellAttackBonus,
+  'AllSpells': instance.allSpells.map((e) => e.toJson()).toList(),
 };
 
 Character _$CharacterFromJson(Map<String, dynamic> json) => Character(
-  id: json['id'] as String?,
-  profile: json['profile'] == null
+  id: json['Id'] as String?,
+  profile: json['Profile'] == null
       ? null
-      : Profile.fromJson(json['profile'] as Map<String, dynamic>),
-  attributes: json['attributes'] == null
+      : Profile.fromJson(json['Profile'] as Map<String, dynamic>),
+  attributes: json['Attributes'] == null
       ? null
-      : Attributes.fromJson(json['attributes'] as Map<String, dynamic>),
-  combat: json['combat'] == null
+      : Attributes.fromJson(json['Attributes'] as Map<String, dynamic>),
+  combat: json['Combat'] == null
       ? null
-      : CombatStats.fromJson(json['combat'] as Map<String, dynamic>),
-  proficiencies: json['proficiencies'] == null
+      : CombatStats.fromJson(json['Combat'] as Map<String, dynamic>),
+  proficiencies: json['Proficiencies'] == null
       ? null
-      : Proficiencies.fromJson(json['proficiencies'] as Map<String, dynamic>),
-  roleplay: json['roleplay'] == null
+      : Proficiencies.fromJson(json['Proficiencies'] as Map<String, dynamic>),
+  roleplay: json['Roleplay'] == null
       ? null
-      : Roleplay.fromJson(json['roleplay'] as Map<String, dynamic>),
-  spellbook: json['spellbook'] == null
+      : Roleplay.fromJson(json['Roleplay'] as Map<String, dynamic>),
+  spellbook: json['Spellbook'] == null
       ? null
-      : Spellbook.fromJson(json['spellbook'] as Map<String, dynamic>),
-  weapons: (json['weapons'] as List<dynamic>?)
+      : Spellbook.fromJson(json['Spellbook'] as Map<String, dynamic>),
+  weapons: (json['Weapons'] as List<dynamic>?)
       ?.map((e) => Weapon.fromJson(e as Map<String, dynamic>))
       .toList(),
-  inventory: json['inventory'] == null
+  inventory: json['Inventory'] == null
       ? null
-      : Inventory.fromJson(json['inventory'] as Map<String, dynamic>),
+      : Inventory.fromJson(json['Inventory'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$CharacterToJson(Character instance) => <String, dynamic>{
-  'id': instance.id,
-  'profile': instance.profile.toJson(),
-  'attributes': instance.attributes.toJson(),
-  'combat': instance.combat.toJson(),
-  'proficiencies': instance.proficiencies.toJson(),
-  'roleplay': instance.roleplay.toJson(),
-  'spellbook': instance.spellbook.toJson(),
-  'weapons': instance.weapons.map((e) => e.toJson()).toList(),
-  'inventory': instance.inventory.toJson(),
+  'Id': instance.id,
+  'Profile': instance.profile.toJson(),
+  'Attributes': instance.attributes.toJson(),
+  'Combat': instance.combat.toJson(),
+  'Proficiencies': instance.proficiencies.toJson(),
+  'Roleplay': instance.roleplay.toJson(),
+  'Spellbook': instance.spellbook.toJson(),
+  'Weapons': instance.weapons.map((e) => e.toJson()).toList(),
+  'Inventory': instance.inventory.toJson(),
 };
