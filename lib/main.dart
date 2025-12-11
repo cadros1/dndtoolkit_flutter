@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// 引入主屏幕
+import 'services/snack_bar_service.dart';
 import 'pages/main_screen.dart';
 
 void main() {
@@ -19,6 +19,7 @@ class DnDToolkitApp extends StatelessWidget {
         // 设置主题种子颜色
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
+      scaffoldMessengerKey: SnackBarService.scaffoldMessengerKey,
       // 指定首页
       home: const MainScreen(),
     );
