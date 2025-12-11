@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'about_page.dart';
+import 'sync/discovery_page.dart';
 
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
@@ -38,6 +39,18 @@ class MorePage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AboutPage()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.sync),
+            title: const Text("PC 端同步"),
+            subtitle: const Text("与 Windows 客户端互传角色"),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DiscoveryPage()),
               );
             },
           ),
