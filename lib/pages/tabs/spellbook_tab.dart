@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/character.dart';
+import '../../widgets/step_input_card.dart';
 
 class SpellbookTab extends StatefulWidget {
   final Character character;
@@ -68,18 +69,18 @@ class _SpellbookTabState extends State<SpellbookTab> {
         Row(
           children: [
             Expanded(
-              child: _buildBigNumberBox(
+              child: StepInputCard(
                 label: "法术豁免难度",
                 value: _book.spellSaveDC,
-                onChanged: (v) => _book.spellSaveDC = v,
+                onChanged: (v) => setState(() => _book.spellSaveDC = v),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
-              child: _buildBigNumberBox(
+              child: StepInputCard(
                 label: "法术攻击加值",
                 value: _book.spellAttackBonus,
-                onChanged: (v) => _book.spellAttackBonus = v,
+                onChanged: (v) => setState(() => _book.spellAttackBonus = v),
               ),
             ),
           ],

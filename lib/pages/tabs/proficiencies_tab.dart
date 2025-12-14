@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../models/character.dart';
+import '../../widgets/step_input_card.dart';
 
 class ProficienciesTab extends StatefulWidget {
   final Character character;
@@ -26,18 +26,18 @@ class _ProficienciesTabState extends State<ProficienciesTab> {
         Row(
           children: [
             Expanded(
-              child: _buildNumberField(
+              child: StepInputCard(
                 label: "熟练加值",
                 value: _profile.proficiencyBonus,
-                onChanged: (v) => _profile.proficiencyBonus = v,
+                onChanged: (v) => setState(() => _profile.proficiencyBonus = v),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: _buildNumberField(
+              child: StepInputCard(
                 label: "被动察觉",
                 value: _profile.passivePerception,
-                onChanged: (v) => _profile.passivePerception = v,
+                onChanged: (v) => setState(() => _profile.passivePerception = v),
               ),
             ),
           ],
@@ -109,16 +109,6 @@ class _ProficienciesTabState extends State<ProficienciesTab> {
     return Text(
       title,
       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-    );
-  }
-
-  Widget _buildNumberField({required String label, required int value, required Function(int) onChanged}) {
-    return TextFormField(
-      initialValue: value.toString(),
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
-      onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
     );
   }
 

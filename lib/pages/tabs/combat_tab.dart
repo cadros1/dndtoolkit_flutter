@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/character.dart';
+import '../../widgets/step_input_card.dart';
 
 class CombatTab extends StatefulWidget {
   final Character character;
@@ -26,58 +27,51 @@ class _CombatTabState extends State<CombatTab> {
         Row(
           children: [
             Expanded(
-              child: _buildBigStatBox(
-                label: "护甲等级(AC)",
+              child: StepInputCard(
+                label: "护甲等级 (AC)",
                 value: _combat.armorClass,
-                onChanged: (v) => _combat.armorClass = v,
-                icon: Icons.shield_outlined,
+                onChanged: (v) => setState(() => _combat.armorClass = v),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
-              child: _buildBigStatBox(
+              child: StepInputCard(
                 label: "先攻加值",
                 value: _combat.initiative,
-                onChanged: (v) => _combat.initiative = v,
-                icon: Icons.flash_on,
+                onChanged: (v) => setState(() => _combat.initiative = v),
               ),
             ),
-            const SizedBox(width: 10),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
             Expanded(
-              child: _buildTextBox(
+              child: _buildTextCard(
                 label: "速度",
-                initialValue: _combat.speed,
-                onChanged: (v) => _combat.speed = v,
-                icon: Icons.directions_run,
+                value: _combat.speed,
+                onChanged: (v) => setState(() => _combat.speed = v),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: StepInputCard(
+                label: "最大生命值",
+                value: _combat.hitPointsMax,
+                onChanged: (v) => setState(() => _combat.hitPointsMax = v),
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: _buildNumberField(
-                label: "最大生命值",
-                value: _combat.hitPointsMax,
-                onChanged: (v) => _combat.hitPointsMax = v,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 3,
-              child: TextFormField(
-                initialValue: _combat.hitDiceTotal,
-                decoration: const InputDecoration(
-                  labelText: "最大生命骰",
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                onChanged: (v) => _combat.hitDiceTotal = v,
-              ),
-            ),
-          ],
+        TextFormField(
+          initialValue: _combat.hitDiceTotal,
+          decoration: const InputDecoration(
+            labelText: "最大生命骰",
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          onChanged: (v) => _combat.hitDiceTotal = v,
         ),
         const Divider(height: 40),
         _buildSectionTitle("武器攻击"),
@@ -129,14 +123,42 @@ class _CombatTabState extends State<CombatTab> {
     );
   }
 
+  Widget _buildTextCard({
+    required String label,
+    required String value,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Card(
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          children: [
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 8), // 稍微高一点以对齐步进器
+            TextFormField(
+              initialValue: value,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              decoration: const InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: onChanged,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Theme.of(context).colorScheme.primary,
-      ),
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
     );
   }
 
