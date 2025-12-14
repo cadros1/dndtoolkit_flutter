@@ -9,10 +9,6 @@ class MorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("更多"),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
       body: ListView(
         children: [
           // 示例：之前的 PDF 手册入口（可选）
