@@ -220,10 +220,10 @@ class _AdventurePageState extends State<AdventurePage> {
         // 第二行：护甲, 先攻, 速度
         Row(
           children: [
-            Expanded(child: _buildReadOnlyBox("护甲", "${c.armorClass}")),
+            Expanded(child: _buildReadOnlyBox("护甲等级（AC）", "${c.armorClass}")),
             const SizedBox(width: 8),
             Expanded(
-                child: _buildReadOnlyBox("先攻",
+                child: _buildReadOnlyBox("先攻加值",
                     "${c.initiative >= 0 ? '+' : ''}${c.initiative}")),
             const SizedBox(width: 8),
             Expanded(child: _buildReadOnlyBox("速度", c.speed)),
@@ -268,55 +268,116 @@ class _AdventurePageState extends State<AdventurePage> {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
-            const Text("生命值", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            // 数值输入
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 40,
-                  child: TextFormField(
-                    initialValue: c.hitPointsCurrent.toString(),
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(isDense: true, border: UnderlineInputBorder(), contentPadding: EdgeInsets.zero),
-                    onChanged: (v) {
-                      setState(() => c.hitPointsCurrent = int.tryParse(v) ?? 0);
-                      _autoSave();
-                    },
-                  ),
-                ),
-                const Text(" / ", style: TextStyle(fontSize: 16)),
-                Text("${c.hitPointsMax}", style: const TextStyle(fontSize: 16, color: Colors.grey)),
-                const SizedBox(width: 8),
-                const Text("临时:", style: TextStyle(fontSize: 10, color: Colors.blue)),
-                SizedBox(
-                  width: 30,
-                  child: TextFormField(
-                    initialValue: c.hitPointsTemp.toString(),
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(isDense: true, border: UnderlineInputBorder(), contentPadding: EdgeInsets.zero),
-                    onChanged: (v) {
-                      setState(() => c.hitPointsTemp = int.tryParse(v) ?? 0);
-                      _autoSave();
-                    },
-                  ),
-                ),
-              ],
+            const Text("生命值 (HP)", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            
+            // 1. 当前生命值控制行
+            _buildHpStepperRow(
+              label: "当前",
+              value: c.hitPointsCurrent,
+              color: (c.hitPointsCurrent < c.hitPointsMax / 4) ? Colors.red : Colors.green,
+              suffixText: "/ ${c.hitPointsMax}", // 显示在数字后面的最大值
+              onChanged: (val) {
+                setState(() => c.hitPointsCurrent = val);
+                _autoSave();
+              },
             ),
+
             const SizedBox(height: 8),
-            // 生命条
+
+            // 2. 临时生命值控制行
+            _buildHpStepperRow(
+              label: "临时",
+              value: c.hitPointsTemp,
+              color: Colors.blue,
+              onChanged: (val) {
+                setState(() => c.hitPointsTemp = val);
+                _autoSave();
+              },
+            ),
+
+            const SizedBox(height: 12),
+            // 3. 生命条
             _buildHpBar(c.hitPointsCurrent, c.hitPointsMax + c.hitPointsTemp, c.hitPointsTemp),
           ],
         ),
       ),
+    );
+  }
+
+  // 内部辅助方法：构建带按钮的 HP 行
+  Widget _buildHpStepperRow({
+    required String label,
+    required int value,
+    required Color color,
+    required ValueChanged<int> onChanged,
+    String? suffixText,
+  }) {
+    // 使用 Controller 确保按钮更新时输入框同步更新
+    final controller = TextEditingController(text: value.toString());
+    // 光标移到最后
+    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+
+    return Row(
+      children: [
+        SizedBox(width: 32, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+        // 减号
+        InkWell(
+          onTap: () => onChanged(value - 1),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.remove, size: 20),
+          ),
+        ),
+        
+        // 输入框
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 45,
+                child: TextField(
+                  controller: controller,
+                  key: ValueKey("hp_field_$label$value"), // 强制重绘以更新值
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+                  decoration: const InputDecoration(isDense: true, border: InputBorder.none, contentPadding: EdgeInsets.zero),
+                  onChanged: (v) {
+                    final newVal = int.tryParse(v);
+                    if (newVal != null) onChanged(newVal);
+                  },
+                ),
+              ),
+              if (suffixText != null)
+                Flexible(
+                  child: Text(
+                    suffixText, 
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    overflow: TextOverflow.ellipsis, // 防止溢出
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // 加号
+        InkWell(
+          onTap: () => onChanged(value + 1),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.add, size: 20),
+          ),
+        ),
+      ],
     );
   }
 
