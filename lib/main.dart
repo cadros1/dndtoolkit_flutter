@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'services/snack_bar_service.dart';
+import 'services/update_service.dart';
 import 'pages/main_screen.dart';
 
 void main() {
   runApp(const DnDToolkitApp());
+  UpdateService.instance.checkUpdate();
 }
 
 class DnDToolkitApp extends StatelessWidget {

@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import '../services/update_service.dart';
+import '../services/snack_bar_service.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
@@ -18,8 +18,6 @@ class _AboutPageState extends State<AboutPage> {
 
   // GitHub 仓库地址
   final String _repoUrl = "https://github.com/cadros1/dndtoolkit_flutter";
-  // GitHub API 地址
-  final String _apiUrl = "https://api.github.com/repos/cadros1/dndtoolkit_flutter/releases/latest";
 
   @override
   void initState() {
@@ -37,41 +35,36 @@ class _AboutPageState extends State<AboutPage> {
 
   /// 检查更新
   Future<void> _checkUpdate() async {
+    // 如果 Service 已经检测到有更新，直接弹窗，无需再次请求网络
+    if (UpdateService.instance.hasNewVersion) {
+      _showUpdateDialog(
+        UpdateService.instance.latestVersion,
+        UpdateService.instance.releaseNotes,
+        UpdateService.instance.downloadUrl,
+      );
+      return;
+    }
+
     setState(() => _isChecking = true);
 
     try {
-      final response = await http.get(Uri.parse(_apiUrl));
-
+      // 强制请求网络
+      final hasUpdate = await UpdateService.instance.checkUpdate(silent: false);
+      
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final String tagName = data['tag_name'] ?? ""; // 例如 "v1.0.1"
-        final String htmlUrl = data['html_url'] ?? _repoUrl;
-        final String body = data['body'] ?? "没有更新说明";
-
-        // 处理版本号对比：移除 'v' 前缀
-        final cleanTagName = tagName.replaceAll('v', '');
-        
-        // 简单对比：如果 tag 与当前 version 不一致，且 tag 不为空，则认为有更新
-        // (更严谨的做法是使用 pub_semver 库进行语义化版本对比，这里简化处理)
-        if (cleanTagName.isNotEmpty && cleanTagName != _version) {
-          _showUpdateDialog(tagName, body, htmlUrl);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("当前已是最新版本")),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("检查失败: ${response.statusCode}")),
+      if (hasUpdate) {
+        _showUpdateDialog(
+          UpdateService.instance.latestVersion,
+          UpdateService.instance.releaseNotes,
+          UpdateService.instance.downloadUrl,
         );
+      } else {
+        SnackBarService.showInfo("当前已是最新版本");
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("检查出错，请检查网络: $e")),
-        );
+        SnackBarService.showError("检查更新失败: $e");
       }
     } finally {
       if (mounted) {
