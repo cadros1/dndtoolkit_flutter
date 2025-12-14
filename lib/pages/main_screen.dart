@@ -1,3 +1,4 @@
+import 'package:dndtoolkit_flutter/services/update_service.dart';
 import 'package:flutter/material.dart';
 import 'adventure_page.dart';
 import 'character_list_page.dart';
@@ -42,19 +43,26 @@ class _MainScreenState extends State<MainScreen> {
       // 这会导致旧页面 dispose，新页面 initState
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
+        items: <BottomNavigationBarItem>[
+          const BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: '角色',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.map),
             label: '冒险',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.more_horiz),
-            label: '更多',
-          ),
+                icon: Badge(
+                  // 控制是否显示
+                  isLabelVisible: UpdateService.instance.hasNewVersion,
+                  // 不传 label 默认就是小红点 (small size)
+                  // 可以通过 smallSize 属性调整红点大小，默认约 6.0
+                  smallSize: 8, 
+                  child: const Icon(Icons.more_horiz),
+                ),
+                label: '更多',
+              ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).colorScheme.primary,

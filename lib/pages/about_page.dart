@@ -156,9 +156,14 @@ class _AboutPageState extends State<AboutPage> {
             leading: const Icon(Icons.system_update),
             title: const Text("检查更新"),
             subtitle: const Text("从GitHub Release"),
-            trailing: _isChecking 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
-              : const Icon(Icons.arrow_forward_ios, size: 16),
+            trailing: _isChecking
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Badge(
+                        isLabelVisible: UpdateService.instance.hasNewVersion,
+                        // 如果想显示具体的 "v1.0.1" 也可以：
+                        // label: Text("New"), 
+                        child: const Icon(Icons.arrow_forward_ios, size: 16),
+                      ),
             onTap: _isChecking ? null : _checkUpdate,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

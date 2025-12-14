@@ -1,3 +1,4 @@
+import 'package:dndtoolkit_flutter/services/update_service.dart';
 import 'package:flutter/material.dart';
 import 'about_page.dart';
 import 'sync/discovery_page.dart';
@@ -34,7 +35,11 @@ class MorePage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text("关于本应用"),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            trailing: Badge(
+                  isLabelVisible: UpdateService.instance.hasNewVersion,
+                  smallSize: 8,
+                  child: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
             onTap: () {
               Navigator.push(
                 context,
