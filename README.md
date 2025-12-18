@@ -18,3 +18,9 @@
 
 - [Windows](https://github.com/cadros1/DndToolkit) - 使用WPF开发
 - [Android](https://github.com/cadros1/dndtoolkit_flutter) - 使用Flutter开发
+
+## 许可协议
+
+本项目采用 **PolyForm Noncommercial License 1.0.0** 许可协议。
+
+您可以在非商业用途下自由使用、复制和分发本软件。详细条款请参阅项目中的许可文件或 [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/)。
