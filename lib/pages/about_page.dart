@@ -118,6 +118,44 @@ class _AboutPageState extends State<AboutPage> {
     }
   }
 
+  /// 显示自定义许可协议页
+  void _showLicenseAgreement() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text("许可协议"),
+            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          ),
+          // [修改] 使用 FutureBuilder 异步加载资源文件
+          body: FutureBuilder<String>(
+            future: DefaultAssetBundle.of(context).loadString('assets/LICENSE'),
+            builder: (context, snapshot) {
+              // 1. 正在加载
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              // 2. 加载出错
+              if (snapshot.hasError) {
+                return Center(child: Text("无法加载协议文件: ${snapshot.error}"));
+              }
+
+              // 3. 加载成功
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  snapshot.data ?? "协议内容为空",
+                  style: const TextStyle(fontSize: 14, height: 1.5), // 稍微调大行高，阅读更舒适
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,41 +189,67 @@ class _AboutPageState extends State<AboutPage> {
           ),
           const SizedBox(height: 40),
           
-          // 检查更新按钮
-          ListTile(
-            leading: const Icon(Icons.system_update),
-            title: const Text("检查更新"),
-            subtitle: const Text("从GitHub Release"),
+          // --- 功能区 ---
+          _buildListTile(
+            icon: Icons.system_update,
+            title: "检查更新",
+            subtitle: "访问 GitHub Release",
             trailing: _isChecking
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Badge(
-                        isLabelVisible: UpdateService.instance.hasNewVersion,
-                        // 如果想显示具体的 "v1.0.1" 也可以：
-                        // label: Text("New"), 
-                        child: const Icon(Icons.arrow_forward_ios, size: 16),
-                      ),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : Badge(
+                    isLabelVisible: UpdateService.instance.hasNewVersion,
+                    child: const Icon(Icons.arrow_forward_ios, size: 16),
+                  ),
             onTap: _isChecking ? null : _checkUpdate,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-            ),
           ),
-          
+
           const SizedBox(height: 10),
-          
-          // 项目主页
-          ListTile(
-            leading: const Icon(Icons.code),
-            title: const Text("项目主页"),
-            subtitle: Text(_repoUrl, maxLines: 1, overflow: TextOverflow.ellipsis),
+
+          _buildListTile(
+            icon: Icons.code,
+            title: "项目主页",
+            subtitle: _repoUrl,
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => _launchUrl(_repoUrl),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-            ),
           ),
-          
+
+          const SizedBox(height: 30),
+              
+          // --- 法律信息区 ---
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 8),
+            child: Text("法律信息", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+              
+          // 1. 许可协议 (PolyForm)
+          _buildListTile(
+            icon: Icons.gavel,
+            title: "许可协议",
+            subtitle: "PolyForm Noncommercial 1.0.0",
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _showLicenseAgreement,
+          ),
+
+          const SizedBox(height: 10),
+
+          // 2. 第三方开源声明 (Flutter 自带页面)
+          _buildListTile(
+            icon: Icons.article,
+            title: "第三方开源声明",
+            subtitle: "Open Source Licenses",
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              // Flutter 自带的神奇函数，自动生成开源协议页
+              showLicensePage(
+                context: context,
+                applicationName: "DnD Toolkit",
+                applicationVersion: "v$_version",
+                applicationIcon: const FlutterLogo(size: 48),
+                applicationLegalese: "Copyright © 2025 DnD Toolkit Contributors",
+              );
+            },
+          ),
+
           const SizedBox(height: 40),
           const Center(
             child: Text(
@@ -193,7 +257,29 @@ class _AboutPageState extends State<AboutPage> {
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ),
+          const SizedBox(height: 20),
         ],
+      ),
+    );
+  }
+
+  // 辅助方法：统一 ListTile 样式
+  Widget _buildListTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+    required VoidCallback? onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: trailing,
+      onTap: onTap,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
       ),
     );
   }
