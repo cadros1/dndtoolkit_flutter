@@ -10,7 +10,7 @@ class AdventurePage extends StatefulWidget {
   State<AdventurePage> createState() => _AdventurePageState();
 }
 
-class _AdventurePageState extends State<AdventurePage> {
+class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserver {
   final CharacterStorage _storage = CharacterStorage();
   List<Character> _characters = [];
   Character? _selectedChar;
@@ -28,7 +28,23 @@ class _AdventurePageState extends State<AdventurePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); 
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // 移除监听
+    _autoSave(); // 在切换底部Tab离开页面时触发保存
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 当应用退到后台、锁屏、或弹出系统级弹窗失去焦点时触发保存
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _autoSave();
+    }
   }
 
   Future<void> _loadData() async {
@@ -46,21 +62,7 @@ class _AdventurePageState extends State<AdventurePage> {
     });
   }
 
-  /// 手动保存
-  Future<void> _manualSave() async {
-    if (_selectedChar != null) {
-      // 收起键盘
-      FocusManager.instance.primaryFocus?.unfocus();
-      await _storage.saveCharacter(_selectedChar!);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("角色状态已保存")),
-        );
-      }
-    }
-  }
-
-  /// 自动保存 (用于修改HP/法术位等关键数值后静默保存)
+  /// 自动保存 (静默保存)
   Future<void> _autoSave() async {
     if (_selectedChar != null) {
       await _storage.saveCharacter(_selectedChar!);
@@ -163,6 +165,7 @@ class _AdventurePageState extends State<AdventurePage> {
                 }).toList(),
                 onChanged: (Character? newValue) {
                   if (newValue != null) {
+                    _autoSave();
                     setState(() {
                       _selectedChar = newValue;
                       _currentOption = RollOption.free();
@@ -172,11 +175,6 @@ class _AdventurePageState extends State<AdventurePage> {
                 },
               ),
             ),
-          ),
-          IconButton.filled(
-            onPressed: _manualSave,
-            icon: const Icon(Icons.save),
-            tooltip: "保存状态",
           ),
         ],
       ),
@@ -209,7 +207,6 @@ class _AdventurePageState extends State<AdventurePage> {
                 isStringMode: true,
                 onChangedStr: (currStr) {
                   c.hitDiceCurrent = currStr;
-                  _autoSave();
                 },
               ),
             ),
@@ -252,7 +249,6 @@ class _AdventurePageState extends State<AdventurePage> {
                     setState(() {
                       group.remainSlots = val;
                     });
-                    _autoSave();
                   },
                 ),
               );
@@ -282,7 +278,6 @@ class _AdventurePageState extends State<AdventurePage> {
               suffixText: "/ ${c.hitPointsMax}", // 显示在数字后面的最大值
               onChanged: (val) {
                 setState(() => c.hitPointsCurrent = val);
-                _autoSave();
               },
             ),
 
@@ -295,7 +290,6 @@ class _AdventurePageState extends State<AdventurePage> {
               color: Colors.blue,
               onChanged: (val) {
                 setState(() => c.hitPointsTemp = val);
-                _autoSave();
               },
             ),
 
