@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/character.dart';
 import '../../widgets/step_input_card.dart';
+import '../../widgets/currency_step_row.dart';
 
 class CombatTab extends StatefulWidget {
   final Character character;
@@ -105,6 +106,48 @@ class _CombatTabState extends State<CombatTab> {
         ),
 
         const SizedBox(height: 24),
+        _buildSectionTitle("财富"),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Column(
+              children:[
+                CurrencyStepRow(
+                  label: "CP",
+                  value: _inv.cP,
+                  onChanged: (v) => setState(() => _inv.cP = v),
+                ),
+                const Divider(height: 8, thickness: 0.5),
+                CurrencyStepRow(
+                  label: "SP",
+                  value: _inv.sP,
+                  onChanged: (v) => setState(() => _inv.sP = v),
+                ),
+                const Divider(height: 8, thickness: 0.5),
+                CurrencyStepRow(
+                  label: "EP",
+                  value: _inv.eP,
+                  onChanged: (v) => setState(() => _inv.eP = v),
+                ),
+                const Divider(height: 8, thickness: 0.5),
+                CurrencyStepRow(
+                  label: "GP",
+                  value: _inv.gP,
+                  onChanged: (v) => setState(() => _inv.gP = v),
+                ),
+                const Divider(height: 8, thickness: 0.5),
+                CurrencyStepRow(
+                  label: "PP",
+                  value: _inv.pP,
+                  onChanged: (v) => setState(() => _inv.pP = v),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
         const Divider(height: 30),
         _buildSectionTitle("特殊能力"),
         const SizedBox(height: 8),
@@ -159,80 +202,6 @@ class _CombatTabState extends State<CombatTab> {
     return Text(
       title,
       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-    );
-  }
-
-  Widget _buildBigStatBox({
-    required String label,
-    required int value,
-    required Function(int) onChanged,
-    required IconData icon,
-  }) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.grey),
-            const SizedBox(height: 4),
-            TextFormField(
-              initialValue: value.toString(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(isDense: true, border: InputBorder.none, contentPadding: EdgeInsets.zero),
-              onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
-            ),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextBox({
-    required String label,
-    required String initialValue,
-    required Function(String) onChanged,
-    required IconData icon,
-  }) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.grey),
-            const SizedBox(height: 4),
-            TextFormField(
-              initialValue: initialValue,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-              onChanged: onChanged,
-            ),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNumberField({required String label, required int value, required Function(int) onChanged}) {
-    return TextFormField(
-      initialValue: value.toString(),
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
-      onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
     );
   }
 
