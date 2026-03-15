@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/character.dart';
 import '../services/character_storage.dart';
+import '../widgets/currency_step_row.dart';
 
 class AdventurePage extends StatefulWidget {
   const AdventurePage({super.key});
@@ -254,7 +255,21 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
               );
             }),
           ],
-        )
+        ),
+
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity, // 占据整行
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.account_balance_wallet),
+            label: const Text("钱币", style: TextStyle(fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: _showCurrencyBottomSheet, // 点击唤起 BottomSheet
+          ),
+        ),
       ],
     );
   }
@@ -772,6 +787,99 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
           );
         },
       ),
+    );
+  }
+
+  void _showCurrencyBottomSheet() {
+    if (_selectedChar == null) return;
+    final inv = _selectedChar!.inventory;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // 允许弹窗高度根据内容自适应（避免被键盘挤压）
+      useSafeArea: true,
+      builder: (BuildContext context) {
+        // 使用 StatefulBuilder，这样弹窗内部调用 setModalState 时，仅刷新弹窗UI，不刷新整个冒险页
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              // 关键：底部加上键盘的高度，使得键盘弹出时整个 BottomSheet 会被向上顶起
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // 高度收缩到内容实际高度
+                  children:[
+                    // 顶部标题和关闭按钮
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children:[
+                        const Text("钱币", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    
+                    // 引入复用的 CurrencyStepRow 组件，五个货币项
+                    CurrencyStepRow(
+                      label: "CP",
+                      value: inv.cP,
+                      onChanged: (v) {
+                        setModalState(() => inv.cP = v);
+                        _autoSave(); // 静默保存
+                      },
+                    ),
+                    const Divider(height: 8, thickness: 0.5),
+                    CurrencyStepRow(
+                      label: "SP",
+                      value: inv.sP,
+                      onChanged: (v) {
+                        setModalState(() => inv.sP = v);
+                        _autoSave();
+                      },
+                    ),
+                    const Divider(height: 8, thickness: 0.5),
+                    CurrencyStepRow(
+                      label: "EP",
+                      value: inv.eP,
+                      onChanged: (v) {
+                        setModalState(() => inv.eP = v);
+                        _autoSave();
+                      },
+                    ),
+                    const Divider(height: 8, thickness: 0.5),
+                    CurrencyStepRow(
+                      label: "GP",
+                      value: inv.gP,
+                      onChanged: (v) {
+                        setModalState(() => inv.gP = v);
+                        _autoSave();
+                      },
+                    ),
+                    const Divider(height: 8, thickness: 0.5),
+                    CurrencyStepRow(
+                      label: "PP",
+                      value: inv.pP,
+                      onChanged: (v) {
+                        setModalState(() => inv.pP = v);
+                        _autoSave();
+                      },
+                    ),
+                    const SizedBox(height: 24), // 底部留白
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
