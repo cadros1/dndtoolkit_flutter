@@ -31,7 +31,7 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
   final List<String> _tabs =[
     "基础信息",
     "技能豁免",
-    "战斗数据",
+    "冒险信息",
     "人物设定",
     "施法信息",
   ];
@@ -157,7 +157,7 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
               // 2. 技能与豁免
               ProficienciesTab(character: _editingChar),
               
-              // 3. 战斗数据
+              // 3. 冒险信息
               CombatTab(character: _editingChar),
 
               // 4. 人物设定
