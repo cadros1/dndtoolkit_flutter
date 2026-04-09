@@ -238,43 +238,4 @@ class _SpellbookTabState extends State<SpellbookTab> {
       onChanged: onChanged,
     );
   }
-
-  Widget _buildBigNumberBox({
-    required String label,
-    required int value,
-    required Function(int) onChanged,
-    bool showPlusSign = false,
-  }) {
-    return Card(
-      elevation: 2,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            TextFormField(
-              initialValue: value.toString(),
-              keyboardType: const TextInputType.numberWithOptions(signed: true),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                prefixText: showPlusSign && value > 0 ? "+" : null, 
-                contentPadding: EdgeInsets.zero,
-              ),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))],
-              onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
