@@ -41,6 +41,9 @@ dependencies:
   url_launcher: ^6.2.4
   device_info_plus: ^10.1.0
   pub_semver: ^2.1.4
+  file_picker: ^8.0.0
+  syncfusion_flutter_pdf: ^24.2.3
+  share_plus: ^7.2.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -77,6 +80,7 @@ flutter:
   assets:
     - assets/Character.pdf
     - assets/LICENSE
+    - assets/fonts/simsun.ttc
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
