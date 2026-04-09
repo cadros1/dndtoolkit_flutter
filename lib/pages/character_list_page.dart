@@ -1,9 +1,11 @@
-import 'dart:convert'; // [新增] 用于 base64Decode
-import 'dart:typed_data'; // [新增] 用于 Uint8List
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/character.dart';
 import '../services/character_storage.dart';
 import 'character_edit_page.dart';
+import '../services/pdf_data_service.dart';
+import '../services/snack_bar_service.dart';
 
 class CharacterListPage extends StatefulWidget {
   const CharacterListPage({super.key});
@@ -94,6 +96,31 @@ class _CharacterListPageState extends State<CharacterListPage> {
     );
   }
 
+  // 导入处理的辅助方法
+  Future<void> _importCharacter() async {
+    try {
+      SnackBarService.showInfo("请选择 PDF 文件...");
+      final char = await PdfDataService.importCharacterPdfAsync();
+      if (char != null) {
+        await _storage.saveCharacter(char);
+        await _loadData();
+        SnackBarService.showSuccess("导入成功！");
+      }
+    } catch (e) {
+      SnackBarService.showError(e.toString());
+    }
+  }
+
+  // 导出处理的辅助方法
+  Future<void> _exportCharacter(Character char) async {
+    try {
+      SnackBarService.showInfo("正在生成 PDF...");
+      await PdfDataService.exportCharacterPdfAsync(char);
+    } catch (e) {
+      SnackBarService.showError(e.toString());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -139,6 +166,10 @@ class _CharacterListPageState extends State<CharacterListPage> {
                           onPressed: () => _navigateToEditPage(char),
                         ),
                         IconButton(
+                          icon: const Icon(Icons.picture_as_pdf, color: Colors.green),
+                          onPressed: () => _exportCharacter(char),
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _deleteCharacter(char.id),
                         ),
@@ -149,10 +180,24 @@ class _CharacterListPageState extends State<CharacterListPage> {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToEditPage(),
-        tooltip: '新建角色',
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children:[
+          FloatingActionButton(
+            heroTag: "import_btn",
+            onPressed: _importCharacter,
+            tooltip: '从PDF导入',
+            backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+            child: const Icon(Icons.file_upload),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: "new_btn",
+            onPressed: () => _navigateToEditPage(),
+            tooltip: '新建角色',
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }
