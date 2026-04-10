@@ -173,10 +173,8 @@ class PdfDataService {
 
   /// 导出角色卡 PDF
   static Future<void> exportCharacterPdfAsync(Character character) async {
-    if (_cjkFont == null) {
-      final ByteData fontData = await rootBundle.load('assets/fonts/simsun.ttc'); // 替换为你实际的字体文件名
-      _cjkFont = PdfTrueTypeFont(fontData.buffer.asUint8List(), 12);
-    }
+    final ByteData fontData = await rootBundle.load('assets/fonts/simsun.ttc'); // 替换为你实际的字体文件名
+    _cjkFont = PdfTrueTypeFont(fontData.buffer.asUint8List(), 12);
     
     final ByteData templateData = await rootBundle.load('assets/Character.pdf');
     final PdfDocument document = PdfDocument(inputBytes: templateData.buffer.asUint8List());
