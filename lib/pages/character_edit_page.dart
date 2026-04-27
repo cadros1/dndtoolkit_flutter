@@ -22,9 +22,9 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
   final CharacterStorage _storage = CharacterStorage();
   late Character _editingChar;
 
-  // [新增] 用于脏检查，记录初始状态的 JSON 字符串
+  // 用于脏检查，记录初始状态的 JSON 字符串
   late String _initialJson; 
-  // [新增] 用于控制是否允许直接退出
+  // 用于控制是否允许直接退出
   bool _forceExit = false;
 
   // Tab 定义
@@ -44,12 +44,12 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
     _initialJson = jsonEncode(_editingChar.toJson());
   }
 
-  // [新增] 判断是否有未保存的修改
+  // 判断是否有未保存的修改
   bool _hasChanges() {
     return _initialJson != jsonEncode(_editingChar.toJson());
   }
 
-  // [新增] 强制执行退出操作，绕过拦截
+  // 强制执行退出操作，绕过拦截
   void _performExit([bool saved = false]) {
     setState(() {
       _forceExit = true;
@@ -69,11 +69,11 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
       const SnackBar(content: Text('角色已保存')),
     );
 
-    //[修改] 调用强制退出方法，并带回 true 标记已保存
+    //调用强制退出方法，并带回 true 标记已保存
     _performExit(true); 
   }
 
-  // [新增] 显示退出确认对话框
+  // 显示退出确认对话框
   Future<String?> _showExitDialog() {
     return showDialog<String>(
       context: context,
@@ -100,22 +100,22 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    // [修改] 使用 PopScope 包裹，拦截返回事件
+    // 使用 PopScope 包裹，拦截返回事件
     return PopScope(
       canPop: _forceExit, // 如果为 false，则拦截返回并触发 onPopInvokedWithResult
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return; // 已经成功退出，直接返回
 
-        // 1. 如果没有任何修改，直接放行退出
+        // 如果没有任何修改，直接放行退出
         if (!_hasChanges()) {
           _performExit();
           return;
         }
 
-        // 2. 如果有修改，弹出确认框
+        // 如果有修改，弹出确认框
         final String? action = await _showExitDialog();
         
-        // 3. 根据用户的选择执行相应的逻辑
+        // 根据用户的选择执行相应的逻辑
         if (action == 'save') {
           await _saveAndExit();
         } else if (action == 'discard') {
