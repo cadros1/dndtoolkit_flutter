@@ -61,12 +61,6 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
   }
 
   Future<void> _saveAndExit() async {
-    _editingChar.combat.hitDiceCurrent = _editingChar.combat.hitDiceTotal;
-    _editingChar.combat.hitPointsCurrent = _editingChar.combat.hitPointsMax;
-    _editingChar.combat.hitPointsTemp = 0;
-    for (var spellLevelGroup in _editingChar.spellbook.allSpells) {
-      spellLevelGroup.remainSlots = spellLevelGroup.totalSlots;
-    }
     await _storage.saveCharacter(_editingChar);
     
     if (!mounted) return;
