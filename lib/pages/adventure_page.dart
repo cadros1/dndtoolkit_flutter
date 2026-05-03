@@ -76,6 +76,8 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     return _currentOption.calculateBonus(_selectedChar!);
   }
 
+  // --- 页面主体布局 ---
+  // 页面分三段：基础信息卡片(固定) → BottomSheet入口Chip行(固定) → 骰子模块+日志(可滚动)
   @override
   Widget build(BuildContext context) {
     if (_characters.isEmpty) {
@@ -181,6 +183,8 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     );
   }
 
+  // --- 基础信息卡片（固定区域，不随日志滚动） ---
+  // 包含：HP（当前/临时/生命条）、生命骰、AC、先攻、速度
   Widget _buildBasicInfoCard() {
     final c = _selectedChar!.combat;
 
@@ -231,6 +235,7 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     );
   }
 
+  // --- BottomSheet 入口 Chip 行（水平可滚动，未来扩展不会拥挤） ---
   Widget _buildBottomSheetEntryChips() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -253,6 +258,8 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     );
   }
 
+  // --- 法术位 BottomSheet ---
+  // 利用 StatefulBuilder 局部刷新，避免每次修改都重建整个页面
   void _showSpellSlotBottomSheet() {
     if (_selectedChar == null) return;
     final spellbook = _selectedChar!.spellbook;

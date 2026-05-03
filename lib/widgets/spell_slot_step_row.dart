@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+/// 法术位步进器 —— 单行加减控件，显示"当前值 / 最大值"格式，归零时红色警示
 class SpellSlotStepRow extends StatefulWidget {
-  final int level;
-  final int current;
-  final int max;
+  final int level; // 法术环位 (1-9)
+  final int current; // 当前剩余数
+  final int max; // 总数上限
   final ValueChanged<int> onCurrentChanged;
-  final ValueChanged<int>? onMaxChanged;
+  final ValueChanged<int>? onMaxChanged; // 预留：未来可在此行直接编辑上限
 
   const SpellSlotStepRow({
     super.key,
@@ -32,6 +33,7 @@ class _SpellSlotStepRowState extends State<SpellSlotStepRow> {
     _currentController = TextEditingController(text: widget.current.toString());
   }
 
+  // 当父组件外部改变值时，同步控制器内容，避免光标跳动
   @override
   void didUpdateWidget(covariant SpellSlotStepRow oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -58,6 +60,7 @@ class _SpellSlotStepRowState extends State<SpellSlotStepRow> {
     }
   }
 
+  // 步进器布局：[标签] ...[减号 输入框/上限 加号]
   @override
   Widget build(BuildContext context) {
     final isZero = widget.current == 0;
