@@ -91,21 +91,24 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
       resizeToAvoidBottomInset: false,
       body: Column(
         children: [
-          _buildTopBar(),
+          // 固定头部区域 —— Material + elevation 产生阴影，与下方滚动区域形成视觉分层
+          Material(
+            elevation: 4,
+            child: Column(
+              children: [
+                _buildTopBar(),
+                _buildBasicInfoCard(),
+                _buildBottomSheetEntryChips(),
+              ],
+            ),
+          ),
 
-          // 基础信息卡片（固定，不滚动）
-          _buildBasicInfoCard(),
-
-          // BottomSheet 入口 Chip 行
-          _buildBottomSheetEntryChips(),
-
-          const Divider(height: 24),
-
-          // 骰子模块 + 日志（可滚动区域）
+          // 可滚动区域
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
+                const SizedBox(height: 12),
                 _buildRollControlPanel(),
 
                 const Divider(height: 30, thickness: 2),
