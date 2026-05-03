@@ -98,25 +98,76 @@ class _CharacterListPageState extends State<CharacterListPage> {
 
   // 导入处理的辅助方法
   Future<void> _importCharacter() async {
+    var dialogShown = false;
     try {
-      SnackBarService.showInfo("请选择 PDF 文件...");
+      SnackBarService.showInfo("导入中...");
+
+      if (!mounted) return;
+      dialogShown = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text("正在导入角色..."),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await Future.delayed(const Duration(milliseconds: 50));
       final char = await PdfDataService.importCharacterPdfAsync();
-      if (char != null) {
-        await _storage.saveCharacter(char);
-        await _loadData();
-        SnackBarService.showSuccess("导入成功！");
-      }
+      if (char == null) throw Exception("导入失败");
+      await _storage.saveCharacter(char);
+      await _loadData();
+
+      if (mounted) Navigator.pop(context);
+      SnackBarService.showSuccess("导入成功！");
     } catch (e) {
+      if (dialogShown && mounted) Navigator.pop(context);
       SnackBarService.showError(e.toString());
     }
   }
 
   // 导出处理的辅助方法
   Future<void> _exportCharacter(Character char) async {
+    var dialogShown = false;
     try {
-      SnackBarService.showInfo("正在生成 PDF...");
+      if (!mounted) return;
+      dialogShown = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text("正在导出 PDF..."),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await Future.delayed(const Duration(milliseconds: 50));
       await PdfDataService.exportCharacterPdfAsync(char);
+
+      if (mounted) Navigator.pop(context);
     } catch (e) {
+      if (dialogShown && mounted) Navigator.pop(context);
       SnackBarService.showError(e.toString());
     }
   }
