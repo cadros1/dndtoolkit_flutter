@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/character.dart';
 import '../services/character_storage.dart';
 import '../widgets/currency_step_row.dart';
+import '../widgets/spell_slot_step_row.dart';
 
 class AdventurePage extends StatefulWidget {
   const AdventurePage({super.key});
@@ -85,28 +86,28 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     }
 
     return Scaffold(
-      // 避免键盘弹出时顶起布局，保持日志流式显示
       resizeToAvoidBottomInset: false,
       body: Column(
         children: [
-          // 1. 顶部角色选择栏 + 保存按钮
           _buildTopBar(),
 
-          // 2. 主内容滚动区域
+          // 基础信息卡片（固定，不滚动）
+          _buildBasicInfoCard(),
+
+          // BottomSheet 入口 Chip 行
+          _buildBottomSheetEntryChips(),
+
+          const Divider(height: 24),
+
+          // 骰子模块 + 日志（可滚动区域）
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                // --- A. 状态仪表盘 ---
-                _buildStatusDashboard(),
-                const Divider(height: 24),
-
-                // --- B. 骰子控制面板 ---
                 _buildRollControlPanel(),
-                
+
                 const Divider(height: 30, thickness: 2),
 
-                // --- C. 检定日志 ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -126,10 +127,8 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
                     child: Center(child: Text("暂无记录", style: TextStyle(color: Colors.grey))),
                   )
                 else
-                  // 显示日志列表
                   ..._logs.map((log) => _buildLogItem(log)),
-                  
-                // 底部留白
+
                 const SizedBox(height: 50),
               ],
             ),
@@ -182,95 +181,137 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     );
   }
 
-  // --- 状态仪表盘 ---
-  Widget _buildStatusDashboard() {
+  Widget _buildBasicInfoCard() {
     final c = _selectedChar!.combat;
-    final b = _selectedChar!.spellbook;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 第一行：生命值 & 生命骰
-        Row(
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 4,
-              child: _buildHpSection(c),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _buildEditableStatBox(
-                label: "生命骰",
-                currentStr: c.hitDiceCurrent,
-                maxStr: c.hitDiceTotal,
-                isStringMode: true,
-                onChangedStr: (currStr) {
-                  c.hitDiceCurrent = currStr;
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // 第二行：护甲, 先攻, 速度
-        Row(
-          children: [
-            Expanded(child: _buildReadOnlyBox("护甲等级（AC）", "${c.armorClass}")),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _buildReadOnlyBox("先攻加值",
-                    "${c.initiative >= 0 ? '+' : ''}${c.initiative}")),
-            const SizedBox(width: 8),
-            Expanded(child: _buildReadOnlyBox("速度", c.speed)),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // 第三行：法术位
-        const Text("法术位",
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ...b.allSpells
-                .where((g) => g.level > 0 && g.level <= 9)
-                .map((group) {
-              return SizedBox(
-                width: 70,
-                child: _buildEditableSpellSlotBox(
-                  level: group.level,
-                  current: group.remainSlots,
-                  max: group.totalSlots,
-                  onChanged: (val) {
-                    setState(() {
-                      group.remainSlots = val;
-                    });
-                  },
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: _buildHpSection(c),
                 ),
-              );
-            }),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 3,
+                  child: _buildEditableStatBox(
+                    label: "生命骰",
+                    currentStr: c.hitDiceCurrent,
+                    maxStr: c.hitDiceTotal,
+                    isStringMode: true,
+                    onChangedStr: (currStr) {
+                      c.hitDiceCurrent = currStr;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _buildReadOnlyBox("护甲等级（AC）", "${c.armorClass}")),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _buildReadOnlyBox("先攻加值",
+                        "${c.initiative >= 0 ? '+' : ''}${c.initiative}")),
+                const SizedBox(width: 8),
+                Expanded(child: _buildReadOnlyBox("速度", c.speed)),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
 
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity, // 占据整行
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.account_balance_wallet),
-            label: const Text("钱币", style: TextStyle(fontWeight: FontWeight.bold)),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: _showCurrencyBottomSheet, // 点击唤起 BottomSheet
+  Widget _buildBottomSheetEntryChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          ActionChip(
+            avatar: const Icon(Icons.account_balance_wallet, size: 18),
+            label: const Text("钱币"),
+            onPressed: _showCurrencyBottomSheet,
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          ActionChip(
+            avatar: const Icon(Icons.auto_fix_high, size: 18),
+            label: const Text("法术位"),
+            onPressed: _showSpellSlotBottomSheet,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSpellSlotBottomSheet() {
+    if (_selectedChar == null) return;
+    final spellbook = _selectedChar!.spellbook;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("法术位", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    ...spellbook.allSpells
+                        .where((g) => g.level > 0 && g.level <= 9)
+                        .map((group) {
+                      return Column(
+                        children: [
+                          SpellSlotStepRow(
+                            level: group.level,
+                            current: group.remainSlots,
+                            max: group.totalSlots,
+                            onCurrentChanged: (v) {
+                              setModalState(() => group.remainSlots = v);
+                              _autoSave();
+                            },
+                          ),
+                          if (group.level < 9) const Divider(height: 8, thickness: 0.5),
+                        ],
+                      );
+                    }),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -442,51 +483,6 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  // --- 法术位输入框 ---
-  Widget _buildEditableSpellSlotBox({
-    required int level,
-    required int current,
-    required int max,
-    required Function(int) onChanged
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(4),
-        color: current == 0 ? Colors.red.shade50 : Colors.white,
-      ),
-      child: Column(
-        children: [
-          Text("$level环", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 24,
-                child: TextFormField(
-                  key: ValueKey("spell_${level}_$current"),
-                  initialValue: current.toString(),
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16, 
-                    fontWeight: FontWeight.bold,
-                    color: current == 0 ? Colors.red : Colors.black
-                  ),
-                  decoration: const InputDecoration(isDense: true, border: InputBorder.none, contentPadding: EdgeInsets.zero),
-                  onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
-                ),
-              ),
-              const Text("/", style: TextStyle(fontSize: 12, color: Colors.grey)),
-              Text("$max", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-        ],
       ),
     );
   }
