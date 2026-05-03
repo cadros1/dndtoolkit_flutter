@@ -55,8 +55,30 @@ class _CharacterListPageState extends State<CharacterListPage> {
   }
 
   Future<void> _deleteCharacter(String id) async {
-    await _storage.deleteCharacter(id);
-    await _loadData();
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("删除角色"),
+        content: Text("确定要删除该角色吗？此操作无法撤销。"),
+        actions:[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("取消"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("删除"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _storage.deleteCharacter(id);
+      await _loadData();
+      SnackBarService.showSuccess("已删除该角色");
+    }
   }
 
   // [新增] 构建头像的辅助方法
