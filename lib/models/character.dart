@@ -382,6 +382,9 @@ class Character {
   @JsonKey(includeFromJson: false, includeToJson: false)
   String? filePath;
 
+  /// 角色最后更新时间，用于云端同步冲突检测
+  DateTime? updatedAt;
+
   Profile profile;
   Attributes attributes;
   CombatStats combat;
@@ -395,6 +398,7 @@ class Character {
   Character({
     String? id,
     this.filePath,
+    this.updatedAt,
     Profile? profile,
     Attributes? attributes,
     CombatStats? combat,

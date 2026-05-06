@@ -269,6 +269,9 @@ Map<String, dynamic> _$SpellbookToJson(Spellbook instance) => <String, dynamic>{
 
 Character _$CharacterFromJson(Map<String, dynamic> json) => Character(
   id: json['Id'] as String?,
+  updatedAt: json['UpdatedAt'] == null
+      ? null
+      : DateTime.parse(json['UpdatedAt'] as String),
   profile: json['Profile'] == null
       ? null
       : Profile.fromJson(json['Profile'] as Map<String, dynamic>),
@@ -297,6 +300,7 @@ Character _$CharacterFromJson(Map<String, dynamic> json) => Character(
 
 Map<String, dynamic> _$CharacterToJson(Character instance) => <String, dynamic>{
   'Id': instance.id,
+  'UpdatedAt': instance.updatedAt?.toIso8601String(),
   'Profile': instance.profile.toJson(),
   'Attributes': instance.attributes.toJson(),
   'Combat': instance.combat.toJson(),

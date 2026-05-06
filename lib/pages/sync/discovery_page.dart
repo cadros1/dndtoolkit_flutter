@@ -1,8 +1,15 @@
+// ============================================================================
+// DEPRECATED: 此文件为旧版局域网同步（设备发现）页面，已被云端同步中心替代。
+// 请使用 sync_center_page.dart。
+// 此文件保留仅供参考。
+// ============================================================================
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/lan_sync_service.dart';
 import 'transfer_page.dart';
 
+@Deprecated('已替换为 SyncCenterPage，请使用 sync_center_page.dart')
 class DiscoveryPage extends StatefulWidget {
   const DiscoveryPage({super.key});
 

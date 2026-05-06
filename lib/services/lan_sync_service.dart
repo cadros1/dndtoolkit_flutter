@@ -1,3 +1,9 @@
+// ============================================================================
+// DEPRECATED: 此文件为旧版局域网同步功能，已被云端同步（Cloud Sync）替代。
+// 请使用 cloud_sync_service.dart 和 sync_center_page.dart。
+// 此文件保留仅供参考，相关类与方法已标记为 @Deprecated。
+// ============================================================================
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -6,7 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../models/character.dart';
 import '../services/snack_bar_service.dart';
 
-/// 发现的服务器信息模型
+@Deprecated('已替换为 CloudSyncService，请使用 cloud_sync_service.dart')
 class DiscoveryServer {
   final String ip;
   final int port;
@@ -39,7 +45,7 @@ class DiscoveryServer {
   int get hashCode => ip.hashCode ^ port.hashCode;
 }
 
-/// 简化的远程角色摘要模型 (用于列表显示)
+@Deprecated('已替换为 CloudCharacterSummary，请使用 cloud_sync_service.dart')
 class RemoteCharacterSummary {
   final String id;
   final String name;
@@ -60,6 +66,7 @@ class RemoteCharacterSummary {
   }
 }
 
+@Deprecated('已替换为 CloudSyncService，请使用 cloud_sync_service.dart')
 class LanSyncService {
   RawDatagramSocket? _udpSocket;
   final int _port = 12345;

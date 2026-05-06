@@ -15,10 +15,13 @@ class CharacterStorage {
   Future<File> saveCharacter(Character character) async {
     final path = await _localPath;
     final file = File('$path/${character.id}.json');
-    
+
+    // 保存前更新最后修改时间
+    character.updatedAt = DateTime.now().toUtc();
+
     // 将对象转为 Map，再转为 JSON 字符串
     String jsonStr = jsonEncode(character.toJson());
-    
+
     return file.writeAsString(jsonStr);
   }
 

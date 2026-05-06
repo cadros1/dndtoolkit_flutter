@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
 import 'services/snack_bar_service.dart';
 import 'services/update_service.dart';
+import 'services/token_manager.dart';
+import 'services/cloud_sync_service.dart';
 import 'pages/main_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 预加载令牌并初始化 Supabase 客户端（如有令牌）
+  final token = await TokenManager.instance.getToken();
+  if (token != null && token.isNotEmpty) {
+    // 预热 CloudSyncService，将 token 注入全局请求头
+    try {
+      await CloudSyncService.instance.client;
+    } catch (_) {
+      // 静默失败，云端功能将在用户访问时提示
+    }
+  }
+
   runApp(const DnDToolkitApp());
   UpdateService.instance.checkUpdate();
 }
