@@ -96,8 +96,9 @@ class CloudSyncService {
 
   /// 上传前去除 JSON 中的 base64 图片内容（减小体积，暂不考虑图片同步）
   Map<String, dynamic> _stripPortrait(Map<String, dynamic> json) {
-    if (json.containsKey('PortraitBase64')) {
-      json['PortraitBase64'] = '';
+    final profile = json['Profile'];
+    if (profile is Map<String, dynamic> && profile.containsKey('PortraitBase64')) {
+      profile['PortraitBase64'] = '';
     }
     return json;
   }
