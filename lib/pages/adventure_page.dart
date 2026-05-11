@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/character.dart';
 import '../services/character_storage.dart';
 import '../widgets/currency_step_row.dart';
-import '../widgets/spell_slot_step_row.dart';
 
 class AdventurePage extends StatefulWidget {
   const AdventurePage({super.key});
@@ -253,7 +252,7 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
           const SizedBox(width: 8),
           ActionChip(
             avatar: const Icon(Icons.auto_fix_high, size: 18),
-            label: const Text("法术位"),
+            label: const Text("法术"),
             onPressed: _showSpellSlotBottomSheet,
           ),
         ],
@@ -261,8 +260,8 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     );
   }
 
-  // --- 法术位 BottomSheet ---
-  // 利用 StatefulBuilder 局部刷新，避免每次修改都重建整个页面
+  // --- 法术 BottomSheet ---
+  // 采用 Card + ExpansionTile 展示各环法术位消耗和已配置的法术（只读）
   void _showSpellSlotBottomSheet() {
     if (_selectedChar == null) return;
     final spellbook = _selectedChar!.spellbook;
@@ -271,12 +270,145 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (BuildContext context) {
+      builder: (BuildContext ctx) {
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
+          builder: (BuildContext ctx, StateSetter setModalState) {
+            // ---- 内部辅助组件 ----
+
+            Widget buildMiniBtn(IconData icon, VoidCallback onTap) {
+              return InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 14),
+                ),
+              );
+            }
+
+            Widget buildSlotStepper(SpellLevelGroup group) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  buildMiniBtn(Icons.remove, () {
+                    if (group.remainSlots > 0) {
+                      setModalState(() => group.remainSlots--);
+                      _autoSave();
+                    }
+                  }),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${group.remainSlots}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: group.remainSlots == 0 ? Colors.red : Theme.of(ctx).colorScheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    ' / ${group.totalSlots}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(width: 4),
+                  buildMiniBtn(Icons.add, () {
+                    if (group.remainSlots < group.totalSlots) {
+                      setModalState(() => group.remainSlots++);
+                      _autoSave();
+                    }
+                  }),
+                ],
+              );
+            }
+
+            Widget buildReadOnlySpellRow(Spell spell) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Icon(
+                      spell.isPrepared ? Icons.check_circle : Icons.radio_button_unchecked,
+                      size: 18,
+                      color: spell.isPrepared
+                          ? Theme.of(ctx).colorScheme.primary
+                          : Theme.of(ctx).colorScheme.outline,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        spell.name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(ctx).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            Widget buildSpellList(SpellLevelGroup group) {
+              final namedSpells = group.spells.where((s) => s.name.trim().isNotEmpty).toList();
+
+              if (namedSpells.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Text(
+                    '未配置法术',
+                    style: TextStyle(
+                      color: Theme.of(ctx).colorScheme.outline,
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                );
+              }
+
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: namedSpells.map((spell) => buildReadOnlySpellRow(spell)).toList(),
+                ),
+              );
+            }
+
+            Widget buildSpellCard({
+              required SpellLevelGroup group,
+              required bool showSlotsEditor,
+            }) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: 1,
+                clipBehavior: Clip.antiAlias,
+                child: ExpansionTile(
+                  initiallyExpanded: group.level <= 1,
+                  title: Row(
+                    children: [
+                      Text(
+                        group.levelLabel,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(ctx).colorScheme.primary,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (showSlotsEditor) buildSlotStepper(group),
+                    ],
+                  ),
+                  children: [buildSpellList(group)],
+                ),
+              );
+            }
+
+            // ---- 主体布局 ----
             return Padding(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
                 left: 16,
                 right: 16,
                 top: 16,
@@ -288,32 +420,29 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("法术位", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const Text('法术', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         IconButton(
                           icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
                     ),
                     const Divider(),
+
+                    // 戏法 (level 0) — 不展示法术位编辑器
+                    buildSpellCard(
+                      group: spellbook.allSpells.firstWhere((g) => g.level == 0),
+                      showSlotsEditor: false,
+                    ),
+
+                    // 1-9 环法术
                     ...spellbook.allSpells
-                        .where((g) => g.level > 0 && g.level <= 9)
-                        .map((group) {
-                      return Column(
-                        children: [
-                          SpellSlotStepRow(
-                            level: group.level,
-                            current: group.remainSlots,
-                            max: group.totalSlots,
-                            onCurrentChanged: (v) {
-                              setModalState(() => group.remainSlots = v);
-                              _autoSave();
-                            },
-                          ),
-                          if (group.level < 9) const Divider(height: 8, thickness: 0.5),
-                        ],
-                      );
-                    }),
+                        .where((g) => g.level >= 1 && g.level <= 9)
+                        .map((group) => buildSpellCard(
+                              group: group,
+                              showSlotsEditor: true,
+                            )),
+
                     const SizedBox(height: 24),
                   ],
                 ),
