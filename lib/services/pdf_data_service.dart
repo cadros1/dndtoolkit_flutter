@@ -329,7 +329,10 @@ class PdfDataService {
 
   static String _getText(Map<String, PdfField> map, String key) {
     final field = map[key.trim()];
-    if (field is PdfTextBoxField) return field.text;
+    if (field is PdfTextBoxField) {
+      String rawText = field.text;
+      return rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    }
     return "";
   }
 
