@@ -286,7 +286,22 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
           ),
           title: Row(
             children: [
-              Expanded(child: Text(item.name)),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: item.name),
+                      TextSpan(
+                        text: ' #${item.id.length >= 4 ? item.id.substring(0, 4) : item.id}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               if (cloudNewer)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -362,7 +377,20 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
 
         return ListTile(
           leading: const Icon(Icons.description),
-          title: Text(name),
+          title: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: name),
+                TextSpan(
+                  text: ' #${item.id.length >= 4 ? item.id.substring(0, 4) : item.id}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+          ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
