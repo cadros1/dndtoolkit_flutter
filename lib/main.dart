@@ -39,6 +39,7 @@ class DnDToolkitApp extends StatelessWidget {
           seedColor: seedColor,
           brightness: Brightness.light, // 明确指定为亮色
         ),
+        fontFamily: 'NotoSansSC',
       ),
 
       // 配置暗色主题 (Dark Mode)
@@ -48,6 +49,7 @@ class DnDToolkitApp extends StatelessWidget {
           seedColor: seedColor,
           brightness: Brightness.dark, // 明确指定为暗色
         ),
+        fontFamily: 'NotoSansSC',
       ),
 
       // 设置主题模式跟随系统 (默认就是 system，写出来更清晰)

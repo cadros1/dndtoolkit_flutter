@@ -87,6 +87,13 @@ flutter:
     - assets/LICENSE
     - assets/fonts/simsun.ttc
 
+  fonts:
+  - family: NotoSansSC
+    fonts:
+      - asset: assets/fonts/NotoSansSC-Regular.ttf
+      - asset: assets/fonts/NotoSansSC-Bold.ttf
+        weight: 700
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
