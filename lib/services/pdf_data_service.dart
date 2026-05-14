@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/character.dart';
+import 'snack_bar_service.dart';
 
 class PdfDataService {
   static final List<String> _skills =[
@@ -300,13 +301,28 @@ class PdfDataService {
     final List<int> outputBytes = await document.save();
     document.dispose();
 
-    final Directory tempDir = await getTemporaryDirectory();
     final String safeName = p.characterName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
     final String fileName = safeName.isEmpty ? 'Unnamed_Character' : safeName;
-    final File outputFile = File('${tempDir.path}/$fileName.pdf');
-    await outputFile.writeAsBytes(outputBytes, flush: true);
 
-    await Share.shareXFiles([XFile(outputFile.path)], text: '分享角色卡: $fileName.pdf');
+    if (Platform.isAndroid || Platform.isIOS) {
+      // 移动端：写临时文件 + 系统分享
+      final Directory tempDir = await getTemporaryDirectory();
+      final File outputFile = File('${tempDir.path}/$fileName.pdf');
+      await outputFile.writeAsBytes(outputBytes, flush: true);
+      await Share.shareXFiles([XFile(outputFile.path)], text: '分享角色卡: $fileName.pdf');
+    } else {
+      // 桌面端：弹出原生保存文件对话框
+      final String? savePath = await FilePicker.platform.saveFile(
+        dialogTitle: '保存角色卡',
+        fileName: '$fileName.pdf',
+        allowedExtensions: ['pdf'],
+      );
+      if (savePath == null) {
+        throw Exception('用户取消了保存');
+      }
+      await File(savePath).writeAsBytes(outputBytes, flush: true);
+      SnackBarService.showSuccess('角色卡已保存到: $fileName.pdf');
+    }
   }
 
   // ==================== 辅助方法 ====================
