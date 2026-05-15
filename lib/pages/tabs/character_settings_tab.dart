@@ -20,6 +20,53 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
 
   final ImagePicker _picker = ImagePicker();
 
+  /// 画像 + 外貌 —— 桌面端左右排列，移动端上下堆叠
+  Widget _buildPortraitAndAppearance() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 500) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    _buildSectionTitle("角色画像"),
+                    const SizedBox(height: 10),
+                    _buildPortraitArea(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    _buildSectionTitle("外貌特征"),
+                    const SizedBox(height: 8),
+                    _buildAppearanceGrid(),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            _buildSectionTitle("角色画像"),
+            const SizedBox(height: 10),
+            Center(child: _buildPortraitArea()),
+            const SizedBox(height: 24),
+            _buildSectionTitle("外貌特征"),
+            const SizedBox(height: 8),
+            _buildAppearanceGrid(),
+          ],
+        );
+      },
+    );
+  }
+
   /// 从相册选择图片并转换为 Base64
   Future<void> _pickImage() async {
     try {
@@ -58,17 +105,9 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
-        // --- 1. 角色画像 ---
-        _buildSectionTitle("角色画像"),
-        const SizedBox(height: 10),
-        Center(child: _buildPortraitArea()),
-        const SizedBox(height: 24),
+        // 画像 + 外貌 —— 桌面端左右排列
+        _buildPortraitAndAppearance(),
 
-        // --- 2. 外貌特征 ---
-        _buildSectionTitle("外貌特征"),
-        const SizedBox(height: 8),
-        _buildAppearanceGrid(),
-        
         const Divider(height: 40),
 
         // --- 3. 个性特征 ---

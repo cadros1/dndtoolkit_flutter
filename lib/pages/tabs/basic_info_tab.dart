@@ -87,45 +87,75 @@ class _BasicInfoTabState extends State<BasicInfoTab> {
         const Divider(height: 30),
         _buildSectionTitle("核心属性"),
         const SizedBox(height: 10),
-        Wrap(
+        _buildAttributesGrid(),
+        const SizedBox(height: 50),
+      ],
+    );
+  }
+
+  List<Widget> get _attributeWidgets => [
+        AttributeStepper(
+          label: "力量 (Str)",
+          value: widget.character.attributes.strength,
+          onChanged: (val) => setState(() => widget.character.attributes.strength = val),
+        ),
+        AttributeStepper(
+          label: "敏捷 (Dex)",
+          value: widget.character.attributes.dexterity,
+          onChanged: (val) => setState(() => widget.character.attributes.dexterity = val),
+        ),
+        AttributeStepper(
+          label: "体质 (Con)",
+          value: widget.character.attributes.constitution,
+          onChanged: (val) => setState(() => widget.character.attributes.constitution = val),
+        ),
+        AttributeStepper(
+          label: "智力 (Int)",
+          value: widget.character.attributes.intelligence,
+          onChanged: (val) => setState(() => widget.character.attributes.intelligence = val),
+        ),
+        AttributeStepper(
+          label: "感知 (Wis)",
+          value: widget.character.attributes.wisdom,
+          onChanged: (val) => setState(() => widget.character.attributes.wisdom = val),
+        ),
+        AttributeStepper(
+          label: "魅力 (Cha)",
+          value: widget.character.attributes.charisma,
+          onChanged: (val) => setState(() => widget.character.attributes.charisma = val),
+        ),
+      ];
+
+  Widget _buildAttributesGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 宽度足够时用 3 列网格，窄屏用 Wrap
+        if (constraints.maxWidth >= 500) {
+          return Column(
+            children: [
+              Row(
+                children: _attributeWidgets.sublist(0, 3).map((w) => Expanded(child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: w,
+                ))).toList(),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: _attributeWidgets.sublist(3, 6).map((w) => Expanded(child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: w,
+                ))).toList(),
+              ),
+            ],
+          );
+        }
+        return Wrap(
           spacing: 12,
           runSpacing: 12,
           alignment: WrapAlignment.center,
-          children: [
-            AttributeStepper(
-              label: "力量 (Str)",
-              value: widget.character.attributes.strength,
-              onChanged: (val) => setState(() => widget.character.attributes.strength = val),
-            ),
-            AttributeStepper(
-              label: "智力 (Int)",
-              value: widget.character.attributes.intelligence,
-              onChanged: (val) => setState(() => widget.character.attributes.intelligence = val),
-            ),
-            AttributeStepper(
-              label: "敏捷 (Dex)",
-              value: widget.character.attributes.dexterity,
-              onChanged: (val) => setState(() => widget.character.attributes.dexterity = val),
-            ),
-            AttributeStepper(
-              label: "感知 (Wis)",
-              value: widget.character.attributes.wisdom,
-              onChanged: (val) => setState(() => widget.character.attributes.wisdom = val),
-            ),
-            AttributeStepper(
-              label: "体质 (Con)",
-              value: widget.character.attributes.constitution,
-              onChanged: (val) => setState(() => widget.character.attributes.constitution = val),
-            ),
-            AttributeStepper(
-              label: "魅力 (Cha)",
-              value: widget.character.attributes.charisma,
-              onChanged: (val) => setState(() => widget.character.attributes.charisma = val),
-            ),
-          ],
-        ),
-        const SizedBox(height: 50),
-      ],
+          children: _attributeWidgets,
+        );
+      },
     );
   }
 
@@ -198,8 +228,7 @@ class AttributeStepper extends StatelessWidget {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        width: 150,
+      child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [

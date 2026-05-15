@@ -1,4 +1,4 @@
-import 'dart:convert'; // [新增] 用于 JSON 序列化比对
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/character.dart';
 import '../services/character_storage.dart';
@@ -8,6 +8,11 @@ import 'tabs/proficiencies_tab.dart';
 import 'tabs/combat_tab.dart';
 import 'tabs/character_settings_tab.dart';
 import 'tabs/spellbook_tab.dart';
+
+/// 桌面端布局断点
+const _kDesktopBreakpoint = 600.0;
+/// 桌面端内容最大宽度
+const _kDesktopContentMaxWidth = 740.0;
 
 class CharacterEditPage extends StatefulWidget {
   final Character character;
@@ -22,39 +27,34 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
   final CharacterStorage _storage = CharacterStorage();
   late Character _editingChar;
 
-  // 用于脏检查，记录初始状态的 JSON 字符串
-  late String _initialJson; 
-  // 用于控制是否允许直接退出
+  late String _initialJson;
   bool _forceExit = false;
 
+  // 桌面端侧栏当前选中的 tab 索引
+  int _desktopTabIndex = 0;
+
   // Tab 定义
-  final List<String> _tabs =[
-    "基础信息",
-    "技能豁免",
-    "冒险信息",
-    "人物设定",
-    "施法信息",
+  final List<_TabDef> _tabs = const [
+    _TabDef("基础信息", Icons.person_outline),
+    _TabDef("技能豁免", Icons.shield_outlined),
+    _TabDef("冒险信息", Icons.sports_kabaddi_outlined),
+    _TabDef("人物设定", Icons.menu_book_outlined),
+    _TabDef("施法信息", Icons.auto_fix_high),
   ];
 
   @override
   void initState() {
     super.initState();
     _editingChar = widget.character;
-    // 记录刚进入页面时的角色数据快照
     _initialJson = jsonEncode(_editingChar.toJson());
   }
 
-  // 判断是否有未保存的修改
   bool _hasChanges() {
     return _initialJson != jsonEncode(_editingChar.toJson());
   }
 
-  // 强制执行退出操作，绕过拦截
   void _performExit([bool saved = false]) {
-    setState(() {
-      _forceExit = true;
-    });
-    // 等待下一帧渲染完成，canPop 生效后执行真正的 Pop
+    setState(() => _forceExit = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.pop(context, saved);
     });
@@ -62,25 +62,20 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
 
   Future<void> _saveAndExit() async {
     await _storage.saveCharacter(_editingChar);
-    
     if (!mounted) return;
-    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('角色已保存')),
     );
-
-    //调用强制退出方法，并带回 true 标记已保存
-    _performExit(true); 
+    _performExit(true);
   }
 
-  // 显示退出确认对话框
   Future<String?> _showExitDialog() {
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("未保存的更改"),
         content: const Text("您修改了角色卡但尚未保存，直接退出将丢失本次编辑的内容。"),
-        actions:[
+        actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'cancel'),
             child: const Text("取消"),
@@ -98,71 +93,148 @@ class _CharacterEditPageState extends State<CharacterEditPage> {
     );
   }
 
+  // ---- 构建指定 tab 的内容 Widget ----
+  Widget _buildTabContent(int index) {
+    return switch (index) {
+      0 => BasicInfoTab(character: _editingChar),
+      1 => ProficienciesTab(character: _editingChar),
+      2 => CombatTab(character: _editingChar),
+      3 => CharacterSettingsTab(character: _editingChar),
+      4 => SpellbookTab(character: _editingChar),
+      _ => BasicInfoTab(character: _editingChar),
+    };
+  }
+
+  // ---- 移动端布局 ----
+  Widget _buildMobileLayout() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_editingChar.profile.characterName.isEmpty
+            ? "新建角色"
+            : _editingChar.profile.characterName),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.save),
+            label: const Text("保存并退出"),
+            style: TextButton.styleFrom(foregroundColor: Colors.black),
+            onPressed: _saveAndExit,
+          ),
+        ],
+        bottom: TabBar(
+          isScrollable: true,
+          tabs: _tabs.map((t) => Tab(text: t.label)).toList(),
+        ),
+      ),
+      body: TabBarView(
+        children: List.generate(_tabs.length, (i) => _buildTabContent(i)),
+      ),
+    );
+  }
+
+  // ---- 桌面端布局 ----
+  Widget _buildDesktopLayout() {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_editingChar.profile.characterName.isEmpty
+            ? "新建角色"
+            : _editingChar.profile.characterName),
+        actions: [
+          FilledButton.icon(
+            icon: const Icon(Icons.save, size: 18),
+            label: const Text("保存并退出"),
+            onPressed: _saveAndExit,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 左侧导航面板
+          Material(
+            elevation: 1,
+            child: SizedBox(
+              width: 200,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: List.generate(_tabs.length, (i) {
+                  final tab = _tabs[i];
+                  final selected = i == _desktopTabIndex;
+                  return ListTile(
+                    leading: Icon(
+                      tab.icon,
+                      color: selected ? cs.primary : cs.outline,
+                    ),
+                    title: Text(
+                      tab.label,
+                      style: TextStyle(
+                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                        color: selected ? cs.primary : cs.onSurface,
+                      ),
+                    ),
+                    selected: selected,
+                    selectedTileColor: cs.primaryContainer.withValues(alpha: 0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    onTap: () => setState(() => _desktopTabIndex = i),
+                  );
+                }),
+              ),
+            ),
+          ),
+          const VerticalDivider(thickness: 1, width: 1),
+          // 右侧内容区（各 tab 内已有 ListView，无需外层再包 ScrollView）
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _kDesktopContentMaxWidth),
+                child: _buildTabContent(_desktopTabIndex),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 使用 PopScope 包裹，拦截返回事件
     return PopScope(
-      canPop: _forceExit, // 如果为 false，则拦截返回并触发 onPopInvokedWithResult
+      canPop: _forceExit,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return; // 已经成功退出，直接返回
-
-        // 如果没有任何修改，直接放行退出
+        if (didPop) return;
         if (!_hasChanges()) {
           _performExit();
           return;
         }
-
-        // 如果有修改，弹出确认框
         final String? action = await _showExitDialog();
-        
-        // 根据用户的选择执行相应的逻辑
         if (action == 'save') {
           await _saveAndExit();
         } else if (action == 'discard') {
-          _performExit(); // 丢弃修改，直接退出
+          _performExit();
         }
-        // 如果 action == 'cancel' 或点击了空白处关闭弹窗，则什么也不做，留在当前页面
       },
-      child: DefaultTabController(
-        length: _tabs.length,
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(_editingChar.profile.characterName.isEmpty
-                ? "新建角色"
-                : _editingChar.profile.characterName),
-            actions:[
-              TextButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text("保存并退出"),
-                style: TextButton.styleFrom(foregroundColor: Colors.black),
-                onPressed: _saveAndExit,
-              ),
-            ],
-            bottom: TabBar(
-              isScrollable: true,
-              tabs: _tabs.map((t) => Tab(text: t)).toList(),
-            ),
-          ),
-          body: TabBarView(
-            children:[
-              // 1. 基础信息
-              BasicInfoTab(character: _editingChar),
-              
-              // 2. 技能与豁免
-              ProficienciesTab(character: _editingChar),
-              
-              // 3. 冒险信息
-              CombatTab(character: _editingChar),
-
-              // 4. 人物设定
-              CharacterSettingsTab(character: _editingChar),
-              
-              // 5. 施法信息
-              SpellbookTab(character: _editingChar),
-            ],
-          ),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= _kDesktopBreakpoint) {
+            return _buildDesktopLayout();
+          }
+          return DefaultTabController(
+            length: _tabs.length,
+            child: _buildMobileLayout(),
+          );
+        },
       ),
     );
   }
+}
+
+/// 侧栏导航定义
+class _TabDef {
+  final String label;
+  final IconData icon;
+  const _TabDef(this.label, this.icon);
 }

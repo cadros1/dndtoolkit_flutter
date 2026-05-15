@@ -37,53 +37,71 @@ class _SpellbookTabState extends State<SpellbookTab> {
     );
   }
 
-  /// 构建顶部施法基础信息
+  /// 构建顶部施法基础信息 —— 桌面端单行排列
   Widget _buildHeaderSection() {
+    final classField = _buildTextField(
+      label: "施法职业",
+      initialValue: _book.spellcastingClass,
+      onChanged: (v) => _book.spellcastingClass = v,
+    );
+    final abilityField = _buildTextField(
+      label: "施法关键属性",
+      initialValue: _book.spellcastingAbility,
+      onChanged: (v) => _book.spellcastingAbility = v,
+    );
+    final dcCard = StepInputCard(
+      label: "法术豁免难度",
+      value: _book.spellSaveDC,
+      onChanged: (v) => setState(() => _book.spellSaveDC = v),
+    );
+    final atkCard = StepInputCard(
+      label: "法术攻击加值",
+      value: _book.spellAttackBonus,
+      onChanged: (v) => setState(() => _book.spellAttackBonus = v),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle("施法能力"),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: _buildTextField(
-                label: "施法职业",
-                initialValue: _book.spellcastingClass,
-                onChanged: (v) => _book.spellcastingClass = v,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 2,
-              child: _buildTextField(
-                label: "施法关键属性",
-                initialValue: _book.spellcastingAbility,
-                onChanged: (v) => _book.spellcastingAbility = v,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: StepInputCard(
-                label: "法术豁免难度",
-                value: _book.spellSaveDC,
-                onChanged: (v) => setState(() => _book.spellSaveDC = v),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StepInputCard(
-                label: "法术攻击加值",
-                value: _book.spellAttackBonus,
-                onChanged: (v) => setState(() => _book.spellAttackBonus = v),
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // 宽屏：单行 4 列
+            if (constraints.maxWidth >= 500) {
+              return Row(
+                children: [
+                  Expanded(flex: 3, child: classField),
+                  const SizedBox(width: 10),
+                  Expanded(flex: 2, child: abilityField),
+                  const SizedBox(width: 10),
+                  Expanded(child: dcCard),
+                  const SizedBox(width: 10),
+                  Expanded(child: atkCard),
+                ],
+              );
+            }
+            // 窄屏：两行排列
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(flex: 3, child: classField),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: abilityField),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: dcCard),
+                    const SizedBox(width: 12),
+                    Expanded(child: atkCard),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ],
     );

@@ -107,45 +107,7 @@ class _CombatTabState extends State<CombatTab> {
         const SizedBox(height: 24),
         _buildSectionTitle("财富"),
         const SizedBox(height: 8),
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: Column(
-              children:[
-                CurrencyStepRow(
-                  label: "CP",
-                  value: _inv.cP,
-                  onChanged: (v) => setState(() => _inv.cP = v),
-                ),
-                const Divider(height: 8, thickness: 0.5),
-                CurrencyStepRow(
-                  label: "SP",
-                  value: _inv.sP,
-                  onChanged: (v) => setState(() => _inv.sP = v),
-                ),
-                const Divider(height: 8, thickness: 0.5),
-                CurrencyStepRow(
-                  label: "EP",
-                  value: _inv.eP,
-                  onChanged: (v) => setState(() => _inv.eP = v),
-                ),
-                const Divider(height: 8, thickness: 0.5),
-                CurrencyStepRow(
-                  label: "GP",
-                  value: _inv.gP,
-                  onChanged: (v) => setState(() => _inv.gP = v),
-                ),
-                const Divider(height: 8, thickness: 0.5),
-                CurrencyStepRow(
-                  label: "PP",
-                  value: _inv.pP,
-                  onChanged: (v) => setState(() => _inv.pP = v),
-                ),
-              ],
-            ),
-          ),
-        ),
+        _buildWealthCard(),
         const SizedBox(height: 24),
         const Divider(height: 30),
         _buildSectionTitle("特殊能力"),
@@ -192,6 +154,37 @@ class _CombatTabState extends State<CombatTab> {
             ),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWealthCard() {
+    final currencyItems = [
+      CurrencyStepRow(label: "CP", value: _inv.cP, onChanged: (v) => setState(() => _inv.cP = v)),
+      CurrencyStepRow(label: "SP", value: _inv.sP, onChanged: (v) => setState(() => _inv.sP = v)),
+      CurrencyStepRow(label: "EP", value: _inv.eP, onChanged: (v) => setState(() => _inv.eP = v)),
+      CurrencyStepRow(label: "GP", value: _inv.gP, onChanged: (v) => setState(() => _inv.gP = v)),
+      CurrencyStepRow(label: "PP", value: _inv.pP, onChanged: (v) => setState(() => _inv.pP = v)),
+    ];
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // 宽屏：用 Wrap 紧凑排列
+            if (constraints.maxWidth >= 400) {
+              return Wrap(
+                spacing: 24,
+                runSpacing: 4,
+                children: currencyItems,
+              );
+            }
+            // 窄屏：垂直堆叠
+            return Column(children: currencyItems);
+          },
         ),
       ),
     );
