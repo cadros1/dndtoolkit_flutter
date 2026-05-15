@@ -4,6 +4,8 @@ import '../models/character.dart';
 import '../services/character_storage.dart';
 import '../widgets/currency_step_row.dart';
 
+const _kDesktopBreakpoint = 600.0;
+
 class AdventurePage extends StatefulWidget {
   const AdventurePage({super.key});
 
@@ -76,7 +78,6 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
   }
 
   // --- 页面主体布局 ---
-  // 页面分三段：基础信息卡片(固定) → BottomSheet入口Chip行(固定) → 骰子模块+日志(可滚动)
   @override
   Widget build(BuildContext context) {
     if (_characters.isEmpty) {
@@ -86,59 +87,109 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
       return const Center(child: CircularProgressIndicator());
     }
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _kDesktopBreakpoint) {
+          return _buildDesktopLayout();
+        }
+        return _buildMobileLayout();
+      },
+    );
+  }
+
+  // ---- 移动端布局 ----
+  Widget _buildMobileLayout() {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Column(
         children: [
-          // 固定头部区域 —— Material + elevation 产生阴影，与下方滚动区域形成视觉分层
-          Material(
-            elevation: 4,
-            child: Column(
-              children: [
-                _buildTopBar(),
-                _buildBasicInfoCard(),
-                _buildBottomSheetEntryChips(),
-              ],
-            ),
-          ),
-
-          // 可滚动区域
+          _buildHeaderArea(),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
                 const SizedBox(height: 12),
-                _buildRollControlPanel(),
-
+                _buildRollControlPanel(isDesktop: false),
                 const Divider(height: 30, thickness: 2),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("检定日志", style: Theme.of(context).textTheme.titleMedium),
-                    if (_logs.isNotEmpty)
-                      TextButton.icon(
-                        icon: const Icon(Icons.delete_outline, size: 16),
-                        label: const Text("清空"),
-                        onPressed: () => setState(() => _logs.clear()),
-                      )
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (_logs.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Center(child: Text("暂无记录", style: TextStyle(color: Colors.grey))),
-                  )
-                else
-                  ..._logs.map((log) => _buildLogItem(log)),
-
+                _buildLogSection(),
                 const SizedBox(height: 50),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ---- 桌面端布局 ----
+  Widget _buildDesktopLayout() {
+    return Scaffold(
+      body: Column(
+        children: [
+          _buildHeaderArea(),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 骰子面板：固定宽度，内部可滚动
+                SizedBox(
+                  width: 450,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 16),
+                    child: _buildRollControlPanel(isDesktop: true),
+                  ),
+                ),
+                const VerticalDivider(thickness: 1, width: 1),
+                // 日志区：占据剩余宽度
+                Expanded(child: _buildLogSection()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- 共享：头部区域 ----
+  Widget _buildHeaderArea() {
+    return Material(
+      elevation: 4,
+      child: Column(
+        children: [
+          _buildTopBar(),
+          _buildBasicInfoCard(),
+          _buildBottomSheetEntryChips(),
+        ],
+      ),
+    );
+  }
+
+  // ---- 共享：检定日志区 ----
+  Widget _buildLogSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("检定日志", style: Theme.of(context).textTheme.titleMedium),
+            if (_logs.isNotEmpty)
+              TextButton.icon(
+                icon: const Icon(Icons.delete_outline, size: 16),
+                label: const Text("清空"),
+                onPressed: () => setState(() => _logs.clear()),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_logs.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Center(child: Text("暂无记录", style: TextStyle(color: Colors.grey))),
+          )
+        else
+          ..._logs.map((log) => _buildLogItem(log)),
+      ],
     );
   }
 
@@ -237,26 +288,39 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
     );
   }
 
-  // --- BottomSheet 入口 Chip 行（水平可滚动，未来扩展不会拥挤） ---
+  // --- BottomSheet 入口 Chip 行 ---
   Widget _buildBottomSheetEntryChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          ActionChip(
-            avatar: const Icon(Icons.account_balance_wallet, size: 18),
-            label: const Text("钱币"),
-            onPressed: _showCurrencyBottomSheet,
-          ),
-          const SizedBox(width: 8),
-          ActionChip(
-            avatar: const Icon(Icons.auto_fix_high, size: 18),
-            label: const Text("法术"),
-            onPressed: _showSpellSlotBottomSheet,
-          ),
-        ],
-      ),
+    final chips = Row(
+      children: [
+        ActionChip(
+          avatar: const Icon(Icons.account_balance_wallet, size: 18),
+          label: const Text("钱币"),
+          onPressed: _showCurrencyBottomSheet,
+        ),
+        const SizedBox(width: 8),
+        ActionChip(
+          avatar: const Icon(Icons.auto_fix_high, size: 18),
+          label: const Text("法术"),
+          onPressed: _showSpellSlotBottomSheet,
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 桌面端不需要横向滚动
+        if (constraints.maxWidth >= _kDesktopBreakpoint) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: chips,
+          );
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: chips,
+        );
+      },
     );
   }
 
@@ -627,7 +691,7 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
   }
 
   // --- 骰子控制面板 ---
-  Widget _buildRollControlPanel() {
+  Widget _buildRollControlPanel({bool isDesktop = false}) {
     final baseBonus = _currentBaseBonus;
 
     return Column(
@@ -756,10 +820,11 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
         const SizedBox(height: 16),
 
         // ROLL 按钮
-        SizedBox(
-          width: double.infinity,
-          height: 60,
-          child: ElevatedButton(
+        Center(
+          child: SizedBox(
+            width: isDesktop ? 300 : double.infinity,
+            height: 60,
+            child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -769,6 +834,7 @@ class _AdventurePageState extends State<AdventurePage> with WidgetsBindingObserv
               "ROLL ( D${_currentOption.isLockedD20 ? 20 : _dieSize} )",
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
+          ),
           ),
         ),
       ],
