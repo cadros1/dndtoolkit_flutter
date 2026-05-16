@@ -5,6 +5,8 @@ import '../../services/cloud_sync_service.dart';
 import '../../services/snack_bar_service.dart';
 import '../../services/token_manager.dart';
 
+const _kDesktopBreakpoint = 600.0;
+
 class SyncCenterPage extends StatefulWidget {
   const SyncCenterPage({super.key});
 
@@ -192,8 +194,19 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _kDesktopBreakpoint) {
+          return _buildDesktopLayout();
+        }
+        return _buildMobileLayout();
+      },
+    );
+  }
 
+  // ---- 移动端布局（TabBar + TabBarView） ----
+  Widget _buildMobileLayout() {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text("云端同步中心"),
@@ -215,43 +228,103 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
               )
             : null,
       ),
-      body: _buildBody(),
+      body: _buildTabBody(),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  // ---- 桌面端布局（左右两栏并排） ----
+  Widget _buildDesktopLayout() {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("云端同步中心"),
+        backgroundColor: cs.inversePrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: "刷新",
+            onPressed: _isLoading ? null : _refreshData,
+          ),
+        ],
+      ),
+      body: _buildDesktopBody(),
+    );
+  }
 
-    if (_errorMsg != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
+  // ---- 共享：加载/错误/正常内容判断 ----
+  Widget _buildTabBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_errorMsg != null) return _buildErrorView();
+    return TabBarView(
+      controller: _tabController,
+      children: [_buildCloudTab(), _buildLocalTab()],
+    );
+  }
+
+  Widget _buildDesktopBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_errorMsg != null) return _buildErrorView();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_off, size: 64, color: Theme.of(context).colorScheme.error),
-              const SizedBox(height: 16),
-              Text(_errorMsg!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _initPage,
-                icon: const Icon(Icons.refresh),
-                label: const Text("重试"),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_download, color: Theme.of(context).colorScheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text("云端角色 (下载)", style: Theme.of(context).textTheme.titleMedium),
+                  ],
+                ),
               ),
+              Expanded(child: _buildCloudTab()),
             ],
           ),
         ),
-      );
-    }
-
-    return TabBarView(
-      controller: _tabController,
-      children: [
-        _buildCloudTab(),
-        _buildLocalTab(),
+        const VerticalDivider(thickness: 1, width: 1),
+        Expanded(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.upload, color: Theme.of(context).colorScheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text("本地角色 (上传)", style: Theme.of(context).textTheme.titleMedium),
+                  ],
+                ),
+              ),
+              Expanded(child: _buildLocalTab()),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off, size: 64, color: Theme.of(context).colorScheme.error),
+            const SizedBox(height: 16),
+            Text(_errorMsg!, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _initPage,
+              icon: const Icon(Icons.refresh),
+              label: const Text("重试"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
