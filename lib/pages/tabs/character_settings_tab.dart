@@ -82,8 +82,12 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
         imageQuality: 80,
       );
 
+      if (!mounted) return;
+
       if (image != null) {
         final Uint8List bytes = await image.readAsBytes();
+        if (!mounted) return;
+
         final String base64String = base64Encode(bytes);
 
         setState(() {
@@ -209,26 +213,15 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
   Widget _buildPortraitArea() {
     final cs = Theme.of(context).colorScheme;
     Uint8List? imageBytes;
-    if (_profile.portraitBase64.isNotEmpty) {
+    final hasPortraitData = _profile.portraitBase64.isNotEmpty;
+    if (hasPortraitData) {
       try {
         imageBytes = base64Decode(_profile.portraitBase64);
-      } catch (e) {
-        //print("Base64 decode error: $e");
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("图片加载失败"),
-            content: Text("$e"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("确定"),
-              ),
-            ],
-          ),
-        );
+      } catch (_) {
+        imageBytes = null;
       }
     }
+    final hasBrokenPortrait = hasPortraitData && imageBytes == null;
 
     return Column(
       children: [
@@ -252,7 +245,13 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
                   : null,
             ),
             child: imageBytes == null
-                ? Icon(Icons.add_a_photo_outlined, size: 48, color: cs.primary)
+                ? Icon(
+                    hasBrokenPortrait
+                        ? Icons.broken_image_outlined
+                        : Icons.add_a_photo_outlined,
+                    size: 48,
+                    color: hasBrokenPortrait ? cs.error : cs.primary,
+                  )
                 : null,
           ),
         ),
@@ -265,11 +264,14 @@ class _CharacterSettingsTabState extends State<CharacterSettingsTab> {
               icon: const Icon(Icons.image_outlined),
               label: const Text("选择图片"),
             ),
-            if (imageBytes != null) ...[
+            if (imageBytes != null || hasBrokenPortrait) ...[
               const SizedBox(width: 10),
               TextButton(
                 onPressed: _clearImage,
-                child: Text("清除", style: TextStyle(color: cs.error)),
+                child: Text(
+                  hasBrokenPortrait ? "清除损坏画像" : "清除",
+                  style: TextStyle(color: cs.error),
+                ),
               ),
             ],
           ],

@@ -844,117 +844,13 @@ class _AdventurePageState extends State<AdventurePage>
     String? suffixText,
     bool compact = false,
   }) {
-    // 使用 Controller 确保按钮更新时输入框同步更新
-    final controller = TextEditingController(text: value.toString());
-    // 光标移到最后
-    controller.selection = TextSelection.fromPosition(
-      TextPosition(offset: controller.text.length),
-    );
-
-    final buttonSize = compact ? 36.0 : 42.0;
-    final fieldHeight = compact ? 36.0 : 42.0;
-    final iconSize = compact ? 16.0 : 18.0;
-
-    return Row(
-      children: [
-        SizedBox(
-          width: compact ? 30 : 34,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: compact ? 12 : null,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        // 减号
-        SizedBox.square(
-          dimension: buttonSize,
-          child: IconButton.filledTonal(
-            onPressed: () => onChanged(value - 1),
-            icon: Icon(Icons.remove, size: iconSize),
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              fixedSize: Size.square(buttonSize),
-              minimumSize: Size.square(buttonSize),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-        ),
-
-        // 输入框
-        Expanded(
-          child: Container(
-            height: fieldHeight,
-            margin: EdgeInsets.symmetric(horizontal: compact ? 5 : 8),
-            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    key: ValueKey("hp_field_$label$value"), // 强制重绘以更新值
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    textAlignVertical: TextAlignVertical.center,
-                    style: TextStyle(
-                      fontSize: compact ? 17 : 20,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      filled: false,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (v) {
-                      final newVal = int.tryParse(v);
-                      if (newVal != null) onChanged(newVal);
-                    },
-                  ),
-                ),
-                if (suffixText != null) ...[
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      suffixText,
-                      style: TextStyle(
-                        fontSize: compact ? 13 : 16,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      overflow: TextOverflow.ellipsis, // 防止溢出
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-
-        // 加号
-        SizedBox.square(
-          dimension: buttonSize,
-          child: IconButton.filledTonal(
-            onPressed: () => onChanged(value + 1),
-            icon: Icon(Icons.add, size: iconSize),
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              fixedSize: Size.square(buttonSize),
-              minimumSize: Size.square(buttonSize),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-        ),
-      ],
+    return _HpStepperRow(
+      label: label,
+      value: value,
+      color: color,
+      suffixText: suffixText,
+      compact: compact,
+      onChanged: onChanged,
     );
   }
 
@@ -1896,6 +1792,158 @@ class _AdventurePageState extends State<AdventurePage>
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HpStepperRow extends StatefulWidget {
+  final String label;
+  final int value;
+  final Color color;
+  final ValueChanged<int> onChanged;
+  final String? suffixText;
+  final bool compact;
+
+  const _HpStepperRow({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.onChanged,
+    this.suffixText,
+    this.compact = false,
+  });
+
+  @override
+  State<_HpStepperRow> createState() => _HpStepperRowState();
+}
+
+class _HpStepperRowState extends State<_HpStepperRow> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value.toString());
+  }
+
+  @override
+  void didUpdateWidget(covariant _HpStepperRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextText = widget.value.toString();
+    if (nextText != _controller.text) {
+      _controller.text = nextText;
+      _controller.selection = TextSelection.collapsed(offset: nextText.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTextChanged(String value) {
+    final newVal = int.tryParse(value);
+    if (newVal != null) widget.onChanged(newVal);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final buttonSize = widget.compact ? 36.0 : 42.0;
+    final fieldHeight = widget.compact ? 36.0 : 42.0;
+    final iconSize = widget.compact ? 16.0 : 18.0;
+
+    Widget stepButton({
+      required IconData icon,
+      required VoidCallback onPressed,
+    }) {
+      return SizedBox.square(
+        dimension: buttonSize,
+        child: IconButton.filledTonal(
+          onPressed: onPressed,
+          icon: Icon(icon, size: iconSize),
+          padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(
+            fixedSize: Size.square(buttonSize),
+            minimumSize: Size.square(buttonSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        SizedBox(
+          width: widget.compact ? 30 : 34,
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: widget.compact ? 12 : null,
+              fontWeight: FontWeight.w800,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        stepButton(
+          icon: Icons.remove,
+          onPressed: () => widget.onChanged(widget.value - 1),
+        ),
+        Expanded(
+          child: Container(
+            height: fieldHeight,
+            margin: EdgeInsets.symmetric(horizontal: widget.compact ? 5 : 8),
+            padding: EdgeInsets.symmetric(horizontal: widget.compact ? 8 : 10),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    textAlignVertical: TextAlignVertical.center,
+                    style: TextStyle(
+                      fontSize: widget.compact ? 17 : 20,
+                      fontWeight: FontWeight.bold,
+                      color: widget.color,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: _handleTextChanged,
+                  ),
+                ),
+                if (widget.suffixText != null) ...[
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      widget.suffixText!,
+                      style: TextStyle(
+                        fontSize: widget.compact ? 13 : 16,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        stepButton(
+          icon: Icons.add,
+          onPressed: () => widget.onChanged(widget.value + 1),
+        ),
+      ],
     );
   }
 }
