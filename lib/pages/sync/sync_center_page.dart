@@ -4,8 +4,7 @@ import '../../services/character_storage.dart';
 import '../../services/cloud_sync_service.dart';
 import '../../services/snack_bar_service.dart';
 import '../../services/token_manager.dart';
-
-const _kDesktopBreakpoint = 600.0;
+import '../../widgets/app_ui.dart';
 
 class SyncCenterPage extends StatefulWidget {
   const SyncCenterPage({super.key});
@@ -14,7 +13,8 @@ class SyncCenterPage extends StatefulWidget {
   State<SyncCenterPage> createState() => _SyncCenterPageState();
 }
 
-class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProviderStateMixin {
+class _SyncCenterPageState extends State<SyncCenterPage>
+    with SingleTickerProviderStateMixin {
   final CloudSyncService _cloudService = CloudSyncService.instance;
   final CharacterStorage _storage = CharacterStorage();
 
@@ -134,11 +134,13 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
   Future<void> _handleUpload(Character item) async {
     // 冲突检测：云端版本比本地新时拦截
     final cloudUpdatedAt = _getCloudUpdatedAt(item.id);
-    if (cloudUpdatedAt != null && item.updatedAt != null && cloudUpdatedAt.isAfter(item.updatedAt!)) {
+    if (cloudUpdatedAt != null &&
+        item.updatedAt != null &&
+        cloudUpdatedAt.isAfter(item.updatedAt!)) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("⚠️ 云端版本冲突"),
+          title: const Text("云端版本冲突"),
           content: Text(
             "云端存档比当前本地存档更新，强行上传将覆盖云端数据，确认继续吗？\n\n"
             "云端更新时间：${CloudSyncService.formatTime(cloudUpdatedAt)}\n"
@@ -170,7 +172,9 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
 
       if (mounted) {
         Navigator.pop(context); // 关闭加载
-        final name = item.profile.characterName.isEmpty ? "未命名" : item.profile.characterName;
+        final name = item.profile.characterName.isEmpty
+            ? "未命名"
+            : item.profile.characterName;
         SnackBarService.showSuccess('「$name」上传成功');
         // 刷新云端列表（用于更新 updated_at 等）
         final cloud = await _cloudService.fetchCloudList();
@@ -196,7 +200,7 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= _kDesktopBreakpoint) {
+        if (constraints.maxWidth >= kAppDesktopBreakpoint) {
           return _buildDesktopLayout();
         }
         return _buildMobileLayout();
@@ -206,11 +210,9 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
 
   // ---- 移动端布局（TabBar + TabBarView） ----
   Widget _buildMobileLayout() {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text("云端同步中心"),
-        backgroundColor: cs.inversePrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -234,11 +236,9 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
 
   // ---- 桌面端布局（左右两栏并排） ----
   Widget _buildDesktopLayout() {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text("云端同步中心"),
-        backgroundColor: cs.inversePrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -253,7 +253,7 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
 
   // ---- 共享：加载/错误/正常内容判断 ----
   Widget _buildTabBody() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) return const AppLoadingState(label: "正在同步列表");
     if (_errorMsg != null) return _buildErrorView();
     return TabBarView(
       controller: _tabController,
@@ -262,7 +262,7 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
   }
 
   Widget _buildDesktopBody() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) return const AppLoadingState(label: "正在同步列表");
     if (_errorMsg != null) return _buildErrorView();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,14 +270,12 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
         Expanded(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud_download, color: Theme.of(context).colorScheme.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Text("云端角色 (下载)", style: Theme.of(context).textTheme.titleMedium),
-                  ],
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: AppSectionTitle(
+                  title: "云端角色 (下载)",
+                  subtitle: "将云端角色保存到本机",
+                  icon: Icons.cloud_download_outlined,
                 ),
               ),
               Expanded(child: _buildCloudTab()),
@@ -288,14 +286,12 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
         Expanded(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Row(
-                  children: [
-                    Icon(Icons.upload, color: Theme.of(context).colorScheme.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Text("本地角色 (上传)", style: Theme.of(context).textTheme.titleMedium),
-                  ],
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: AppSectionTitle(
+                  title: "本地角色 (上传)",
+                  subtitle: "将本机角色同步到云端",
+                  icon: Icons.upload_file_outlined,
                 ),
               ),
               Expanded(child: _buildLocalTab()),
@@ -307,23 +303,14 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
   }
 
   Widget _buildErrorView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off, size: 64, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 16),
-            Text(_errorMsg!, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _initPage,
-              icon: const Icon(Icons.refresh),
-              label: const Text("重试"),
-            ),
-          ],
-        ),
+    return AppEmptyState(
+      icon: Icons.cloud_off_outlined,
+      title: "同步不可用",
+      message: _errorMsg!,
+      action: FilledButton.icon(
+        onPressed: _initPage,
+        icon: const Icon(Icons.refresh),
+        label: const Text("重试"),
       ),
     );
   }
@@ -331,89 +318,82 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
   // --- Tab 1: 云端角色 (下载) ---
   Widget _buildCloudTab() {
     if (_cloudList.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_queue, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            Text(
-              "云端暂无角色数据",
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      return const AppEmptyState(
+        icon: Icons.cloud_queue_outlined,
+        title: "云端暂无角色数据",
+        message: "上传本地角色后，这里会显示可下载的云端存档。",
       );
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: _cloudList.length,
       itemBuilder: (context, index) {
         final item = _cloudList[index];
         final cloudNewer = _isCloudNewer(item);
 
-        return ListTile(
-          leading: Icon(
-            Icons.cloud_download,
-            color: cloudNewer ? Theme.of(context).colorScheme.primary : null,
-          ),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(text: item.name),
-                      TextSpan(
-                        text: ' #${item.id.length >= 4 ? item.id.substring(0, 4) : item.id}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+        final cs = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: AppPanel(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              minVerticalPadding: 14,
+              leading: Icon(
+                Icons.cloud_download_outlined,
+                color: cloudNewer ? cs.primary : cs.onSurfaceVariant,
               ),
-              if (cloudNewer)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    "云端有新版本",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: item.name),
+                          TextSpan(
+                            text:
+                                ' #${item.id.length >= 4 ? item.id.substring(0, 4) : item.id}',
+                            style: TextStyle(fontSize: 12, color: cs.outline),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (item.details.isNotEmpty)
-                Text(
-                  item.details,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              Text(
-                '更新: ${CloudSyncService.formatTime(item.updatedAt)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                  if (cloudNewer)
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(
+                        "云端较新",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: cs.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ],
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: () => _handleDownload(item),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (item.details.isNotEmpty)
+                    Text(
+                      item.details,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  Text(
+                    '更新: ${CloudSyncService.formatTime(item.updatedAt)}',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+              trailing: IconButton.filledTonal(
+                tooltip: "下载",
+                icon: const Icon(Icons.download),
+                onPressed: () => _handleDownload(item),
+              ),
+            ),
           ),
         );
       },
@@ -423,68 +403,69 @@ class _SyncCenterPageState extends State<SyncCenterPage> with SingleTickerProvid
   // --- Tab 2: 本地角色 (上传) ---
   Widget _buildLocalTab() {
     if (_localList.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.description_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            Text(
-              "本地暂无角色数据",
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      return const AppEmptyState(
+        icon: Icons.description_outlined,
+        title: "本地暂无角色数据",
+        message: "创建角色或导入 PDF 后，即可上传到云端。",
       );
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: _localList.length,
       itemBuilder: (context, index) {
         final item = _localList[index];
-        final name = item.profile.characterName.isEmpty ? "未命名" : item.profile.characterName;
-        final hasDetail = item.profile.race.isNotEmpty || item.profile.classAndLevel.isNotEmpty;
+        final name = item.profile.characterName.isEmpty
+            ? "未命名"
+            : item.profile.characterName;
+        final hasDetail =
+            item.profile.race.isNotEmpty ||
+            item.profile.classAndLevel.isNotEmpty;
         final detailText = hasDetail
             ? '${item.profile.race}${item.profile.race.isNotEmpty && item.profile.classAndLevel.isNotEmpty ? " | " : ""}${item.profile.classAndLevel}'
             : '';
 
-        return ListTile(
-          leading: const Icon(Icons.description),
-          title: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: name),
+        final cs = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: AppPanel(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              minVerticalPadding: 14,
+              leading: Icon(Icons.description_outlined, color: cs.primary),
+              title: Text.rich(
                 TextSpan(
-                  text: ' #${item.id.length >= 4 ? item.id.substring(0, 4) : item.id}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (hasDetail)
-                Text(
-                  detailText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              Text(
-                '更新: ${CloudSyncService.formatTime(item.updatedAt)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  children: [
+                    TextSpan(text: name),
+                    TextSpan(
+                      text:
+                          ' #${item.id.length >= 4 ? item.id.substring(0, 4) : item.id}',
+                      style: TextStyle(fontSize: 12, color: cs.outline),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.upload),
-            onPressed: () => _handleUpload(item),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasDetail)
+                    Text(
+                      detailText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  Text(
+                    '更新: ${CloudSyncService.formatTime(item.updatedAt)}',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+              trailing: IconButton.filledTonal(
+                tooltip: "上传",
+                icon: const Icon(Icons.upload),
+                onPressed: () => _handleUpload(item),
+              ),
+            ),
           ),
         );
       },

@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/update_service.dart';
 import '../services/snack_bar_service.dart';
+import '../widgets/app_ui.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
@@ -50,7 +51,7 @@ class _AboutPageState extends State<AboutPage> {
     try {
       // 强制请求网络
       final hasUpdate = await UpdateService.instance.checkUpdate(silent: false);
-      
+
       if (!mounted) return;
 
       if (hasUpdate) {
@@ -84,7 +85,10 @@ class _AboutPageState extends State<AboutPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("更新内容：", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                "更新内容：",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Text(desc),
             ],
@@ -111,9 +115,9 @@ class _AboutPageState extends State<AboutPage> {
     final Uri uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("无法打开浏览器")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("无法打开浏览器")));
       }
     }
   }
@@ -123,10 +127,7 @@ class _AboutPageState extends State<AboutPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text("许可协议"),
-            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          ),
+          appBar: AppBar(title: const Text("许可协议")),
           // [修改] 使用 FutureBuilder 异步加载资源文件
           body: FutureBuilder<String>(
             future: DefaultAssetBundle.of(context).loadString('assets/LICENSE'),
@@ -135,7 +136,7 @@ class _AboutPageState extends State<AboutPage> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              
+
               // 2. 加载出错
               if (snapshot.hasError) {
                 return Center(child: Text("无法加载协议文件: ${snapshot.error}"));
@@ -146,7 +147,10 @@ class _AboutPageState extends State<AboutPage> {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   snapshot.data ?? "协议内容为空",
-                  style: const TextStyle(fontSize: 14, height: 1.5), // 稍微调大行高，阅读更舒适
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                  ), // 稍微调大行高，阅读更舒适
                 ),
               );
             },
@@ -159,43 +163,105 @@ class _AboutPageState extends State<AboutPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("关于"),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
+      appBar: AppBar(title: const Text("关于")),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
-          const SizedBox(height: 20),
-          // App 图标 (Flutter Logo 占位)
-          const Center(
-            child: FlutterLogo(size: 80),
-          ),
-          const SizedBox(height: 20),
-          // App 名称
-          const Center(
-            child: Text(
-              "DnD Toolkit",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          AppPanel(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 360;
+                final info = Row(
+                  children: [
+                    Container(
+                      width: 62,
+                      height: 62,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        Icons.casino_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 34,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "DnD Toolkit",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Designed for D&D 5E Players",
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "版本: v$_version (Build $_buildNumber)",
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+
+                final updateChip = UpdateService.instance.hasNewVersion
+                    ? const Chip(
+                        avatar: Icon(Icons.system_update_alt, size: 18),
+                        label: Text("可更新"),
+                      )
+                    : null;
+
+                if (updateChip == null) return info;
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [info, const SizedBox(height: 12), updateChip],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: info),
+                    const SizedBox(width: 12),
+                    updateChip,
+                  ],
+                );
+              },
             ),
           ),
-          const SizedBox(height: 10),
-          // 版本号
-          Center(
-            child: Text(
-              "版本: v$_version (Build $_buildNumber)",
-              style: const TextStyle(color: Colors.grey),
-            ),
-          ),
-          const SizedBox(height: 40),
-          
+          const SizedBox(height: 18),
+
           // --- 功能区 ---
+          const AppSectionTitle(title: "应用", icon: Icons.apps_outlined),
           _buildListTile(
             icon: Icons.system_update,
             title: "检查更新",
             subtitle: "访问 GitHub Release",
             trailing: _isChecking
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : Badge(
                     isLabelVisible: UpdateService.instance.hasNewVersion,
                     child: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -203,7 +269,7 @@ class _AboutPageState extends State<AboutPage> {
             onTap: _isChecking ? null : _checkUpdate,
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           _buildListTile(
             icon: Icons.code,
@@ -213,14 +279,11 @@ class _AboutPageState extends State<AboutPage> {
             onTap: () => _launchUrl(_repoUrl),
           ),
 
-          const SizedBox(height: 30),
-              
+          const SizedBox(height: 18),
+
           // --- 法律信息区 ---
-          const Padding(
-            padding: EdgeInsets.only(left: 8, bottom: 8),
-            child: Text("法律信息", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-              
+          const AppSectionTitle(title: "法律信息", icon: Icons.gavel_outlined),
+
           // 1. 许可协议 (PolyForm)
           _buildListTile(
             icon: Icons.gavel,
@@ -230,7 +293,7 @@ class _AboutPageState extends State<AboutPage> {
             onTap: _showLicenseAgreement,
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // 2. 第三方开源声明 (Flutter 自带页面)
           _buildListTile(
@@ -245,19 +308,11 @@ class _AboutPageState extends State<AboutPage> {
                 applicationName: "DnD Toolkit",
                 applicationVersion: "v$_version",
                 applicationIcon: const FlutterLogo(size: 48),
-                applicationLegalese: "Copyright © 2025 DnD Toolkit Contributors",
+                applicationLegalese:
+                    "Copyright © 2025 DnD Toolkit Contributors",
               );
             },
           ),
-
-          const SizedBox(height: 40),
-          const Center(
-            child: Text(
-              "Designed for D&D 5E Players",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ),
-          const SizedBox(height: 20),
         ],
       ),
     );
@@ -271,16 +326,12 @@ class _AboutPageState extends State<AboutPage> {
     required Widget trailing,
     required VoidCallback? onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+    return AppSettingsTile(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
       trailing: trailing,
       onTap: onTap,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
-      ),
     );
   }
 }

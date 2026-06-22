@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../services/token_manager.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/snack_bar_service.dart';
+import '../widgets/app_ui.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -81,14 +82,12 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         icon: Icon(Icons.warning_rounded, color: Colors.red.shade700, size: 48),
-        title: const Text("⚠️ 严重警告"),
+        title: const Text("严重警告"),
         content: Text(
           "生成新令牌可能导致您失去当前云端所有数据的访问权限，且无法找回。\n\n"
           "当前令牌：\n${_token ?? '无'}\n\n"
           "是否确认生成新令牌？",
-          style: TextStyle(
-            color: Theme.of(ctx).colorScheme.onSurface,
-          ),
+          style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface),
         ),
         actions: [
           TextButton(
@@ -147,11 +146,17 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             const SizedBox(height: 12),
-            Icon(Icons.info_outline, color: Theme.of(ctx).colorScheme.primary, size: 18),
+            Icon(
+              Icons.info_outline,
+              color: Theme.of(ctx).colorScheme.primary,
+              size: 18,
+            ),
             const SizedBox(height: 4),
             Text(
               "请妥善保存此令牌。您需要使用它来访问云端角色数据。",
-              style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -170,31 +175,25 @@ class _SettingsPageState extends State<SettingsPage> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("设置"),
-        backgroundColor: cs.inversePrimary,
-      ),
+      appBar: AppBar(title: const Text("设置")),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(label: "正在读取设置")
           : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
-                const SizedBox(height: 8),
-                // 身份令牌区域
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text(
-                    "身份令牌",
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: cs.primary,
-                    ),
-                  ),
+                const AppPageHeader(
+                  icon: Icons.settings_outlined,
+                  title: "设置",
+                  subtitle: "管理云端同步需要的身份令牌。",
                 ),
-                Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                const SizedBox(height: 18),
+                const AppSectionTitle(
+                  title: "身份令牌",
+                  icon: Icons.vpn_key_outlined,
+                ),
+                AppPanel(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.zero,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -224,12 +223,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           decoration: InputDecoration(
                             hintText: '请输入或生成 UUID v4 令牌',
-                            hintStyle: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                            hintStyle: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            isDense: true,
                           ),
                           maxLines: 1,
                         ),
@@ -258,21 +255,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 16),
                 // 危险操作区域
                 if (_token != null && _token!.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      "危险操作",
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: cs.error,
-                      ),
-                    ),
+                  AppSectionTitle(
+                    title: "危险操作",
+                    icon: Icons.warning_rounded,
+                    trailing: Icon(Icons.lock_outline, color: cs.error),
                   ),
-                  Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                  AppPanel(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.zero,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

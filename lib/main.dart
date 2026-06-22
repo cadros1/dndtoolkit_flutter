@@ -4,6 +4,7 @@ import 'services/update_service.dart';
 import 'services/token_manager.dart';
 import 'services/cloud_sync_service.dart';
 import 'pages/main_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,35 +29,19 @@ class DnDToolkitApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seedColor = Colors.deepPurple;
-
     return MaterialApp(
       title: 'DnD Toolkit',
       // 配置亮色主题 (Light Mode)
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seedColor,
-          brightness: Brightness.light, // 明确指定为亮色
-        ),
-        fontFamily: 'NotoSansSC',
-      ),
+      theme: AppTheme.light(),
 
       // 配置暗色主题 (Dark Mode)
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seedColor,
-          brightness: Brightness.dark, // 明确指定为暗色
-        ),
-        fontFamily: 'NotoSansSC',
-      ),
+      darkTheme: AppTheme.dark(),
 
       // 设置主题模式跟随系统 (默认就是 system，写出来更清晰)
       // system: 跟随系统设置
       // light: 强制亮色
       // dark: 强制暗色
-      themeMode: ThemeMode.system, 
+      themeMode: ThemeMode.system,
       scaffoldMessengerKey: SnackBarService.scaffoldMessengerKey,
       // 指定首页
       home: const MainScreen(),

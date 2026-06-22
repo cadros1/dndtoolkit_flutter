@@ -1,11 +1,9 @@
 import 'package:dndtoolkit_flutter/services/update_service.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_ui.dart';
 import 'adventure_page.dart';
 import 'character_list_page.dart';
 import 'more_page.dart';
-
-/// 移动端/桌面端响应式布局的宽度断点
-const _kDesktopBreakpoint = 600.0;
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -17,6 +15,22 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  static const _pages = [
+    _MainDestination(
+      '角色管理',
+      '角色卡、PDF 导入与导出',
+      Icons.groups_2_outlined,
+      Icons.groups_2,
+    ),
+    _MainDestination(
+      '冒险操作台',
+      '快捷检定、状态与日志',
+      Icons.explore_outlined,
+      Icons.explore,
+    ),
+    _MainDestination('更多', '同步、设置与关于', Icons.more_horiz, Icons.more_horiz),
+  ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -25,30 +39,43 @@ class _MainScreenState extends State<MainScreen> {
 
   // ---- 导航目标列表（移动端和桌面端共用） ----
   List<NavigationDestination> get _destinations => [
-        const NavigationDestination(
-          icon: Icon(Icons.people),
-          label: '角色',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.map),
-          label: '冒险',
-        ),
-        NavigationDestination(
-          icon: Badge(
-            isLabelVisible: UpdateService.instance.hasNewVersion,
-            smallSize: 8,
-            child: const Icon(Icons.more_horiz),
-          ),
-          label: '更多',
-        ),
-      ];
+    NavigationDestination(
+      icon: Icon(_pages[0].icon),
+      selectedIcon: Icon(_pages[0].selectedIcon),
+      label: '角色',
+    ),
+    NavigationDestination(
+      icon: Icon(_pages[1].icon),
+      selectedIcon: Icon(_pages[1].selectedIcon),
+      label: '冒险',
+    ),
+    NavigationDestination(
+      icon: Badge(
+        isLabelVisible: UpdateService.instance.hasNewVersion,
+        smallSize: 8,
+        child: const Icon(Icons.more_horiz),
+      ),
+      label: '更多',
+    ),
+  ];
 
   // ---- 移动端布局：AppBar + BottomNavigationBar ----
   Widget _buildMobileLayout() {
+    final page = _pages[_selectedIndex];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('DnD Toolkit'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(page.title),
+            Text(
+              page.subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
       body: _buildPage(_selectedIndex),
       bottomNavigationBar: NavigationBar(
@@ -61,96 +88,97 @@ class _MainScreenState extends State<MainScreen> {
 
   // ---- 桌面端布局：NavigationRail 侧栏 + 内容区 ----
   Widget _buildDesktopLayout() {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       body: Row(
         children: [
           // 侧栏导航
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _onItemTapped,
-            labelType: NavigationRailLabelType.all,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.casino,
-                    size: 28,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'DnD Toolkit',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: cs.surface,
+              border: Border(right: BorderSide(color: cs.outlineVariant)),
             ),
-            trailing: Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Badge(
-                    isLabelVisible: UpdateService.instance.hasNewVersion,
-                    smallSize: 8,
-                    child: IconButton(
-                      icon: const Icon(Icons.more_horiz),
-                      tooltip: '更多',
-                      onPressed: () => _onItemTapped(2),
+            child: NavigationRail(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: _onItemTapped,
+              labelType: NavigationRailLabelType.all,
+              minWidth: 96,
+              leading: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 18, 10, 22),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        Icons.casino_outlined,
+                        size: 28,
+                        color: cs.primary,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'DnD\nToolkit',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        height: 1.1,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.people_outlined),
-                selectedIcon: Icon(Icons.people),
-                label: Text('角色'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.map_outlined),
-                selectedIcon: Icon(Icons.map),
-                label: Text('冒险'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.more_horiz),
-                selectedIcon: Icon(Icons.more_horiz),
-                label: Text('更多'),
-              ),
-            ],
-          ),
-          const VerticalDivider(thickness: 1, width: 1),
-          // 右侧内容区
-          Expanded(
-            child: Column(
-              children: [
-                // 简洁顶栏
-                Material(
-                  elevation: 1,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    width: double.infinity,
-                    color: Theme.of(context).colorScheme.inversePrimary,
-                    child: Text(
-                      'DnD Toolkit',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
+              trailing: Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Badge(
+                      isLabelVisible: UpdateService.instance.hasNewVersion,
+                      smallSize: 8,
+                      child: IconButton.filledTonal(
+                        icon: const Icon(Icons.more_horiz),
+                        tooltip: '更多',
+                        onPressed: () => _onItemTapped(2),
                       ),
                     ),
                   ),
                 ),
-                Expanded(child: _buildPage(_selectedIndex)),
+              ),
+              destinations: [
+                NavigationRailDestination(
+                  icon: Icon(_pages[0].icon),
+                  selectedIcon: Icon(_pages[0].selectedIcon),
+                  label: const Text('角色'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(_pages[1].icon),
+                  selectedIcon: Icon(_pages[1].selectedIcon),
+                  label: const Text('冒险'),
+                ),
+                NavigationRailDestination(
+                  icon: Badge(
+                    isLabelVisible: UpdateService.instance.hasNewVersion,
+                    smallSize: 8,
+                    child: Icon(_pages[2].icon),
+                  ),
+                  selectedIcon: Badge(
+                    isLabelVisible: UpdateService.instance.hasNewVersion,
+                    smallSize: 8,
+                    child: Icon(_pages[2].selectedIcon),
+                  ),
+                  label: const Text('更多'),
+                ),
               ],
             ),
           ),
+          Expanded(child: _buildPage(_selectedIndex)),
         ],
       ),
     );
@@ -160,13 +188,27 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= _kDesktopBreakpoint) {
+        if (constraints.maxWidth >= kAppDesktopBreakpoint) {
           return _buildDesktopLayout();
         }
         return _buildMobileLayout();
       },
     );
   }
+}
+
+class _MainDestination {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final IconData selectedIcon;
+
+  const _MainDestination(
+    this.title,
+    this.subtitle,
+    this.icon,
+    this.selectedIcon,
+  );
 }
 
 /// 页面切换：不使用 IndexedStack，直接切换 Widget

@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+
 import '../models/character.dart';
 import '../services/character_storage.dart';
-import 'character_edit_page.dart';
 import '../services/pdf_data_service.dart';
 import '../services/snack_bar_service.dart';
-
-/// 桌面端布局断点，与 main_screen.dart 保持一致
-const _kDesktopBreakpoint = 600.0;
+import '../theme/app_theme.dart';
+import '../widgets/app_ui.dart';
+import 'character_edit_page.dart';
 
 class CharacterListPage extends StatefulWidget {
   const CharacterListPage({super.key});
@@ -42,165 +43,74 @@ class _CharacterListPageState extends State<CharacterListPage> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CharacterEditPage(
-          character: character ?? Character(),
-        ),
+        builder: (context) =>
+            CharacterEditPage(character: character ?? Character()),
       ),
     );
     if (mounted) await _loadData();
   }
 
-  Future<void> _deleteCharacter(String id) async {
-    final bool? confirm = await showDialog<bool>(
+  Future<void> _deleteCharacter(Character character) async {
+    final name = _characterName(character);
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("删除角色"),
-        content: const Text("确定要删除该角色吗？此操作无法撤销。"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text("取消"),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text("删除"),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      await _storage.deleteCharacter(id);
-      await _loadData();
-      if (mounted) SnackBarService.showSuccess("已删除该角色");
-    }
-  }
-
-  // ---- 共享辅助组件 ----
-
-  /// 头像构建，[radius] 默认 20（移动端），桌面端可传入更大值
-  Widget _buildAvatar(Character char, {double radius = 20}) {
-    if (char.profile.portraitBase64.isNotEmpty) {
-      try {
-        final Uint8List bytes = base64Decode(char.profile.portraitBase64);
-        return CircleAvatar(
-          radius: radius,
-          backgroundImage: MemoryImage(bytes),
-          backgroundColor: Colors.transparent,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.warning_rounded, color: cs.error, size: 42),
+          title: const Text('删除角色'),
+          content: Text('确定要删除「$name」吗？此操作无法撤销。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: cs.error),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('删除'),
+            ),
+          ],
         );
-      } catch (_) {}
+      },
+    );
+
+    if (confirmed == true) {
+      await _storage.deleteCharacter(character.id);
+      await _loadData();
+      if (mounted) SnackBarService.showSuccess('已删除「$name」');
     }
-    // 回退：显示名字首字母
-    return CircleAvatar(
-      radius: radius,
-      child: Text(
-        char.profile.characterName.isNotEmpty
-            ? char.profile.characterName[0]
-            : "?",
-        style: TextStyle(fontSize: radius * 0.8),
-      ),
-    );
   }
-
-  /// 角色名 + #id前四位
-  Widget _buildNameWithId(Character char) {
-    final cs = Theme.of(context).colorScheme;
-    final name = char.profile.characterName.isEmpty ? "未命名" : char.profile.characterName;
-    final idPrefix = char.id.length >= 4 ? char.id.substring(0, 4) : char.id;
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: name),
-          TextSpan(
-            text: ' #$idPrefix',
-            style: TextStyle(fontSize: 12, color: cs.outline),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---- 操作按钮组件 ----
-
-  Widget _buildEditButton(Character char, {bool iconOnly = false}) {
-    if (iconOnly) {
-      return IconButton(
-        icon: const Icon(Icons.edit, color: Colors.blue),
-        tooltip: '编辑',
-        onPressed: () => _navigateToEditPage(char),
-      );
-    }
-    return TextButton.icon(
-      icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
-      label: const Text("编辑", style: TextStyle(color: Colors.blue)),
-      onPressed: () => _navigateToEditPage(char),
-    );
-  }
-
-  Widget _buildExportButton(Character char, {bool iconOnly = false}) {
-    if (iconOnly) {
-      return IconButton(
-        icon: const Icon(Icons.picture_as_pdf, color: Colors.green),
-        tooltip: '导出 PDF',
-        onPressed: () => _exportCharacter(char),
-      );
-    }
-    return TextButton.icon(
-      icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.green),
-      label: const Text("导出", style: TextStyle(color: Colors.green)),
-      onPressed: () => _exportCharacter(char),
-    );
-  }
-
-  Widget _buildDeleteButton(String id, {bool iconOnly = false}) {
-    if (iconOnly) {
-      return IconButton(
-        icon: const Icon(Icons.delete, color: Colors.red),
-        tooltip: '删除',
-        onPressed: () => _deleteCharacter(id),
-      );
-    }
-    return TextButton.icon(
-      icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-      label: const Text("删除", style: TextStyle(color: Colors.red)),
-      onPressed: () => _deleteCharacter(id),
-    );
-  }
-
-  // ---- 导入导出逻辑 ----
 
   Future<void> _importCharacter() async {
     var dialogShown = false;
     try {
-      SnackBarService.showInfo("导入中...");
+      SnackBarService.showInfo('导入中...');
       if (!mounted) return;
       dialogShown = true;
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("正在导入角色..."),
-                ],
-              ),
+          child: AppPanel(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('正在导入角色...'),
+              ],
             ),
           ),
         ),
       );
       await Future.delayed(const Duration(milliseconds: 50));
       final char = await PdfDataService.importCharacterPdfAsync();
-      if (char == null) throw Exception("导入失败");
+      if (char == null) throw Exception('导入失败');
       await _storage.saveCharacter(char);
       await _loadData();
       if (mounted) Navigator.pop(context);
-      SnackBarService.showSuccess("导入成功！");
+      SnackBarService.showSuccess('导入成功');
     } catch (e) {
       if (dialogShown && mounted) Navigator.pop(context);
       SnackBarService.showError(e.toString());
@@ -216,17 +126,14 @@ class _CharacterListPageState extends State<CharacterListPage> {
         context: context,
         barrierDismissible: false,
         builder: (_) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("正在导出 PDF..."),
-                ],
-              ),
+          child: AppPanel(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('正在导出 PDF...'),
+              ],
             ),
           ),
         ),
@@ -234,268 +141,314 @@ class _CharacterListPageState extends State<CharacterListPage> {
       await Future.delayed(const Duration(milliseconds: 50));
       await PdfDataService.exportCharacterPdfAsync(char);
       if (mounted) Navigator.pop(context);
+      SnackBarService.showSuccess('导出完成');
     } catch (e) {
       if (dialogShown && mounted) Navigator.pop(context);
       SnackBarService.showError(e.toString());
     }
   }
 
-  // ---- 移动端卡片 ----
-  Widget _buildMobileCard(Character char) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      child: ListTile(
-        leading: _buildAvatar(char, radius: 20),
-        title: _buildNameWithId(char),
-        subtitle: Text("${char.profile.race} ${char.profile.classAndLevel}"),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildEditButton(char, iconOnly: true),
-            _buildExportButton(char, iconOnly: true),
-            _buildDeleteButton(char.id, iconOnly: true),
-          ],
+  String _characterName(Character char) {
+    return char.profile.characterName.trim().isEmpty
+        ? '未命名角色'
+        : char.profile.characterName.trim();
+  }
+
+  String _details(Character char) {
+    final parts = [
+      char.profile.race.trim(),
+      char.profile.classAndLevel.trim(),
+    ].where((part) => part.isNotEmpty).toList();
+    return parts.isEmpty ? '未配置种族/职业' : parts.join(' | ');
+  }
+
+  String _idPrefix(Character char) =>
+      char.id.length >= 4 ? char.id.substring(0, 4) : char.id;
+
+  Widget _buildAvatar(Character char, {double radius = 24}) {
+    if (char.profile.portraitBase64.isNotEmpty) {
+      try {
+        final Uint8List bytes = base64Decode(char.profile.portraitBase64);
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: MemoryImage(bytes),
+          backgroundColor: Colors.transparent,
+        );
+      } catch (_) {}
+    }
+
+    final cs = Theme.of(context).colorScheme;
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: cs.primaryContainer,
+      child: Text(
+        _characterName(char).characters.first,
+        style: TextStyle(
+          fontSize: radius * 0.78,
+          color: cs.primary,
+          fontWeight: FontWeight.w900,
         ),
-        onTap: () => _navigateToEditPage(char),
       ),
     );
   }
 
-  // ---- 桌面端卡片 ----
-  Widget _buildDesktopCard(Character char) {
+  Widget _buildHeader(bool isDesktop) {
+    return AppPageHeader(
+      icon: Icons.groups_2_outlined,
+      title: '角色管理',
+      subtitle: _characters.isEmpty
+          ? '创建角色卡，或从 PDF 导入已有角色。'
+          : '共 ${_characters.length} 名角色。点击卡片进入编辑。',
+      actions: [
+        OutlinedButton.icon(
+          icon: const Icon(Icons.file_upload_outlined),
+          label: const Text('从 PDF 导入'),
+          onPressed: _importCharacter,
+        ),
+        if (isDesktop)
+          FilledButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text('新建角色'),
+            onPressed: () => _navigateToEditPage(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMobileImportBar() {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _characters.isEmpty
+                ? '导入已有角色卡，或使用右下角新建。'
+                : '共 ${_characters.length} 名角色',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.file_upload_outlined),
+          label: const Text('从 PDF 导入'),
+          onPressed: _importCharacter,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCharacterCard(Character char, {required bool compact}) {
     final cs = Theme.of(context).colorScheme;
     final c = char.combat;
+    final hpColor =
+        c.hitPointsMax > 0 && c.hitPointsCurrent < c.hitPointsMax / 4
+        ? cs.error
+        : AppTheme.success;
 
-    return Card(
-      margin: const EdgeInsets.all(6),
-      elevation: 1,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _navigateToEditPage(char),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 16, 14, 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return AppPanel(
+      padding: compact ? const EdgeInsets.all(14) : const EdgeInsets.all(18),
+      onTap: () => _navigateToEditPage(char),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 头像
-              _buildAvatar(char, radius: 36),
-              const SizedBox(height: 10),
-              // 角色名 + id
-              DefaultTextStyle(
-                style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                      fontWeight: FontWeight.bold,
+              _buildAvatar(char, radius: compact ? 25 : 34),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: _characterName(char)),
+                          TextSpan(
+                            text: ' #${_idPrefix(char)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                textAlign: TextAlign.center,
-                child: _buildNameWithId(char),
+                    const SizedBox(height: 4),
+                    Text(
+                      _details(char),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 2),
-              // 种族 | 职业
-              Text(
-                char.profile.race.isNotEmpty || char.profile.classAndLevel.isNotEmpty
-                    ? '${char.profile.race}${char.profile.race.isNotEmpty && char.profile.classAndLevel.isNotEmpty ? " | " : ""}${char.profile.classAndLevel}'
-                    : '未配置种族/职业',
-                style: TextStyle(fontSize: 12, color: cs.outline),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              // 战斗摘要
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildStatChip('HP', '${c.hitPointsCurrent}/${c.hitPointsMax}'),
-                  const SizedBox(width: 12),
-                  _buildStatChip('AC', '${c.armorClass}'),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // 操作按钮
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildEditButton(char),
-                  _buildExportButton(char),
-                  _buildDeleteButton(char.id),
+              PopupMenuButton<String>(
+                tooltip: '角色操作',
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) {
+                  if (value == 'export') _exportCharacter(char);
+                  if (value == 'delete') _deleteCharacter(char);
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'export',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.picture_as_pdf_outlined),
+                      title: Text('导出 PDF'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.delete_outline, color: cs.error),
+                      title: Text('删除', style: TextStyle(color: cs.error)),
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatChip(String label, String value) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
-      ),
-    );
-  }
-
-  // ---- 桌面端顶部工具栏 ----
-  Widget _buildDesktopToolbar() {
-    return Material(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Text(
-              '角色列表',
-              style: Theme.of(context).textTheme.titleLarge,
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              AppStatPill(
+                icon: Icons.favorite_outline,
+                label: 'HP',
+                value: '${c.hitPointsCurrent}/${c.hitPointsMax}',
+                color: hpColor,
+              ),
+              AppStatPill(
+                icon: Icons.shield_outlined,
+                label: 'AC',
+                value: '${c.armorClass}',
+              ),
+              AppStatPill(
+                icon: Icons.bolt_outlined,
+                label: '先攻',
+                value: c.initiative >= 0
+                    ? '+${c.initiative}'
+                    : '${c.initiative}',
+                color: AppTheme.info,
+              ),
+            ],
+          ),
+          if (!compact) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () => _navigateToEditPage(char),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('编辑角色卡'),
+              ),
             ),
-            const Spacer(),
-            FilledButton.tonalIcon(
-              icon: const Icon(Icons.file_upload, size: 18),
-              label: const Text("从PDF导入"),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({bool showImportAction = true}) {
+    return AppEmptyState(
+      icon: Icons.person_add_alt_1_outlined,
+      title: '还没有角色',
+      message: '先创建一个角色卡，跑团时就能快速检定、记录状态并导出 PDF。',
+      action: FilledButton.icon(
+        icon: const Icon(Icons.add),
+        label: const Text('创建第一个角色'),
+        onPressed: () => _navigateToEditPage(),
+      ),
+      secondaryAction: showImportAction
+          ? TextButton.icon(
+              icon: const Icon(Icons.file_upload_outlined),
+              label: const Text('从 PDF 导入'),
               onPressed: _importCharacter,
-            ),
-            const SizedBox(width: 10),
-            FilledButton.icon(
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text("新建角色"),
-              onPressed: () => _navigateToEditPage(),
-            ),
-          ],
-        ),
-      ),
+            )
+          : null,
     );
   }
 
-  // ---- 桌面端网格内容 ----
-  Widget _buildDesktopGrid() {
-    if (_characters.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.people_outline, size: 64,
-                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            const Text("还没有角色", style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text("创建第一个角色"),
-              onPressed: () => _navigateToEditPage(),
-            ),
-          ],
-        ),
-      );
-    }
+  Widget _buildMobileList() {
+    if (_characters.isEmpty) return _buildEmptyState(showImportAction: false);
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 104),
+      itemCount: _characters.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) =>
+          _buildCharacterCard(_characters[index], compact: true),
+    );
+  }
 
+  Widget _buildDesktopGrid() {
+    if (_characters.isEmpty) return _buildEmptyState();
     return GridView.builder(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 320,
-        mainAxisExtent: 270,
-        mainAxisSpacing: 6,
-        crossAxisSpacing: 6,
+        maxCrossAxisExtent: 340,
+        mainAxisExtent: 250,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
       ),
       itemCount: _characters.length,
-      itemBuilder: (context, index) => _buildDesktopCard(_characters[index]),
+      itemBuilder: (context, index) =>
+          _buildCharacterCard(_characters[index], compact: false),
     );
   }
 
-  // ---- 移动端布局 ----
-  Widget _buildMobileLayout() {
-    if (_characters.isEmpty) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text("还没有角色"),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () => _navigateToEditPage(),
-                child: const Text("创建第一个角色"),
-              ),
-            ],
+  Widget _buildContent(bool isDesktop) {
+    if (_isLoading) return const AppLoadingState(label: '正在读取角色');
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            isDesktop ? 24 : 16,
+            16,
+            isDesktop ? 24 : 16,
+            isDesktop ? 16 : 12,
           ),
+          child: isDesktop ? _buildHeader(isDesktop) : _buildMobileImportBar(),
         ),
-        floatingActionButton: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FloatingActionButton(
-              heroTag: "import_btn",
-              onPressed: _importCharacter,
-              tooltip: '从PDF导入',
-              backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-              child: const Icon(Icons.file_upload),
-            ),
-            const SizedBox(height: 16),
-            FloatingActionButton(
-              heroTag: "new_btn",
-              onPressed: () => _navigateToEditPage(),
-              tooltip: '新建角色',
-              child: const Icon(Icons.add),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Scaffold(
-      body: ListView.builder(
-        itemCount: _characters.length,
-        itemBuilder: (context, index) => _buildMobileCard(_characters[index]),
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            heroTag: "import_btn",
-            onPressed: _importCharacter,
-            tooltip: '从PDF导入',
-            backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-            child: const Icon(Icons.file_upload),
-          ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            heroTag: "new_btn",
-            onPressed: () => _navigateToEditPage(),
-            tooltip: '新建角色',
-            child: const Icon(Icons.add),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---- 桌面端布局 ----
-  Widget _buildDesktopLayout() {
-    return Scaffold(
-      body: Column(
-        children: [
-          _buildDesktopToolbar(),
-          Expanded(child: _buildDesktopGrid()),
-        ],
-      ),
+        Expanded(child: isDesktop ? _buildDesktopGrid() : _buildMobileList()),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= _kDesktopBreakpoint) {
-          return _buildDesktopLayout();
-        }
-        return _buildMobileLayout();
+        final isDesktop = constraints.maxWidth >= kAppDesktopBreakpoint;
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(top: isDesktop, child: _buildContent(isDesktop)),
+          floatingActionButton: isDesktop
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () => _navigateToEditPage(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('新建角色'),
+                ),
+        );
       },
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/character.dart';
 import '../../widgets/step_input_card.dart';
 import '../../widgets/currency_step_row.dart';
+import '../../widgets/app_ui.dart';
 
 class CombatTab extends StatefulWidget {
   final Character character;
@@ -21,109 +22,116 @@ class _CombatTabState extends State<CombatTab> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: StepInputCard(
-                label: "护甲等级 (AC)",
-                value: _combat.armorClass,
-                onChanged: (v) => setState(() => _combat.armorClass = v),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StepInputCard(
-                label: "先攻加值",
-                value: _combat.initiative,
-                onChanged: (v) => setState(() => _combat.initiative = v),
-              ),
-            ),
-          ],
+        const AppSectionTitle(
+          title: "战斗摘要",
+          subtitle: "跑团中最常修改和查看的状态",
+          icon: Icons.health_and_safety_outlined,
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextCard(
-                label: "速度",
-                value: _combat.speed,
-                onChanged: (v) => setState(() => _combat.speed = v),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StepInputCard(
-                label: "最大生命值",
-                value: _combat.hitPointsMax,
-                onChanged: (v) => setState(() => _combat.hitPointsMax = v),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          initialValue: _combat.hitDiceTotal,
-          decoration: const InputDecoration(
-            labelText: "最大生命骰",
-            border: OutlineInputBorder(),
-            isDense: true,
+        _buildResponsiveGrid([
+          StepInputCard(
+            label: "护甲等级 (AC)",
+            value: _combat.armorClass,
+            onChanged: (v) => setState(() => _combat.armorClass = v),
           ),
-          onChanged: (v) => _combat.hitDiceTotal = v,
+          StepInputCard(
+            label: "先攻加值",
+            value: _combat.initiative,
+            onChanged: (v) => setState(() => _combat.initiative = v),
+          ),
+          _buildTextCard(
+            label: "速度",
+            value: _combat.speed,
+            onChanged: (v) => setState(() => _combat.speed = v),
+          ),
+          StepInputCard(
+            label: "最大生命值",
+            value: _combat.hitPointsMax,
+            onChanged: (v) => setState(() => _combat.hitPointsMax = v),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        AppPanel(
+          child: TextFormField(
+            initialValue: _combat.hitDiceTotal,
+            decoration: const InputDecoration(labelText: "最大生命骰"),
+            onChanged: (v) => _combat.hitDiceTotal = v,
+          ),
         ),
-        const Divider(height: 40),
-        _buildSectionTitle("武器攻击"),
-        const SizedBox(height: 10),
+        const SizedBox(height: 18),
+        const AppSectionTitle(title: "武器攻击", icon: Icons.gps_fixed_outlined),
         ...List.generate(_weapons.length, (index) {
           return _buildWeaponCard(index, _weapons[index]);
         }),
-        _buildSectionTitle("其他攻击/法术备注"),
-        const SizedBox(height: 8),
-        TextFormField(
-          initialValue: _combat.attacksAndSpellcastingNotes,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            hintText: "",
-            alignLabelWithHint: true,
-          ),
-          onChanged: (v) => _combat.attacksAndSpellcastingNotes = v,
+        const SizedBox(height: 6),
+        const AppSectionTitle(
+          title: "其他攻击/法术备注",
+          icon: Icons.edit_note_outlined,
         ),
-        const SizedBox(height: 24),
-        _buildSectionTitle("装备"),
-        const SizedBox(height: 8),
-        TextFormField(
-          initialValue: _inv.equipmentText,
-          maxLines: 6, // 稍微大一点的框
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true, // 让Label在多行模式下位于顶部
+        AppPanel(
+          child: TextFormField(
+            initialValue: _combat.attacksAndSpellcastingNotes,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: "",
+              alignLabelWithHint: true,
+            ),
+            onChanged: (v) => _combat.attacksAndSpellcastingNotes = v,
           ),
-          onChanged: (v) => _inv.equipmentText = v,
         ),
-
-        const SizedBox(height: 24),
-        _buildSectionTitle("财富"),
-        const SizedBox(height: 8),
+        const SizedBox(height: 18),
+        const AppSectionTitle(title: "装备", icon: Icons.backpack_outlined),
+        AppPanel(
+          child: TextFormField(
+            initialValue: _inv.equipmentText,
+            maxLines: 6,
+            decoration: const InputDecoration(alignLabelWithHint: true),
+            onChanged: (v) => _inv.equipmentText = v,
+          ),
+        ),
+        const SizedBox(height: 18),
+        const AppSectionTitle(
+          title: "财富",
+          icon: Icons.account_balance_wallet_outlined,
+        ),
         _buildWealthCard(),
-        const SizedBox(height: 24),
-        const Divider(height: 30),
-        _buildSectionTitle("特殊能力"),
-        const SizedBox(height: 8),
-        TextFormField(
-          initialValue: _combat.ability,
-          maxLines: 6,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            hintText: "",
-            alignLabelWithHint: true,
+        const SizedBox(height: 18),
+        const AppSectionTitle(title: "特殊能力", icon: Icons.auto_awesome_outlined),
+        AppPanel(
+          child: TextFormField(
+            initialValue: _combat.ability,
+            maxLines: 6,
+            decoration: const InputDecoration(
+              hintText: "",
+              alignLabelWithHint: true,
+            ),
+            onChanged: (v) => _combat.ability = v,
           ),
-          onChanged: (v) => _combat.ability = v,
         ),
-        const SizedBox(height: 50),
       ],
+    );
+  }
+
+  Widget _buildResponsiveGrid(List<Widget> children) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 720
+            ? 4
+            : constraints.maxWidth >= 420
+            ? 2
+            : 1;
+        const spacing = 12.0;
+        final width =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: children
+              .map((child) => SizedBox(width: width, child: child))
+              .toList(),
+        );
+      },
     );
   }
 
@@ -132,14 +140,20 @@ class _CombatTabState extends State<CombatTab> {
     required String value,
     required ValueChanged<String> onChanged,
   }) {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.zero,
+    return AppPanel(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        padding: EdgeInsets.zero,
         child: Column(
           children: [
-            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 8), // 稍微高一点以对齐步进器
             TextFormField(
               initialValue: value,
@@ -148,6 +162,7 @@ class _CombatTabState extends State<CombatTab> {
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
+                filled: false,
                 contentPadding: EdgeInsets.zero,
               ),
               onChanged: onChanged,
@@ -161,26 +176,41 @@ class _CombatTabState extends State<CombatTab> {
 
   Widget _buildWealthCard() {
     final currencyItems = [
-      CurrencyStepRow(label: "CP", value: _inv.cP, onChanged: (v) => setState(() => _inv.cP = v)),
-      CurrencyStepRow(label: "SP", value: _inv.sP, onChanged: (v) => setState(() => _inv.sP = v)),
-      CurrencyStepRow(label: "EP", value: _inv.eP, onChanged: (v) => setState(() => _inv.eP = v)),
-      CurrencyStepRow(label: "GP", value: _inv.gP, onChanged: (v) => setState(() => _inv.gP = v)),
-      CurrencyStepRow(label: "PP", value: _inv.pP, onChanged: (v) => setState(() => _inv.pP = v)),
+      CurrencyStepRow(
+        label: "CP",
+        value: _inv.cP,
+        onChanged: (v) => setState(() => _inv.cP = v),
+      ),
+      CurrencyStepRow(
+        label: "SP",
+        value: _inv.sP,
+        onChanged: (v) => setState(() => _inv.sP = v),
+      ),
+      CurrencyStepRow(
+        label: "EP",
+        value: _inv.eP,
+        onChanged: (v) => setState(() => _inv.eP = v),
+      ),
+      CurrencyStepRow(
+        label: "GP",
+        value: _inv.gP,
+        onChanged: (v) => setState(() => _inv.gP = v),
+      ),
+      CurrencyStepRow(
+        label: "PP",
+        value: _inv.pP,
+        onChanged: (v) => setState(() => _inv.pP = v),
+      ),
     ];
 
-    return Card(
-      elevation: 2,
+    return AppPanel(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        padding: EdgeInsets.zero,
         child: LayoutBuilder(
           builder: (context, constraints) {
             // 宽屏：用 Wrap 紧凑排列
             if (constraints.maxWidth >= 400) {
-              return Wrap(
-                spacing: 24,
-                runSpacing: 4,
-                children: currencyItems,
-              );
+              return Wrap(spacing: 24, runSpacing: 4, children: currencyItems);
             }
             // 窄屏：垂直堆叠
             return Column(children: currencyItems);
@@ -190,52 +220,60 @@ class _CombatTabState extends State<CombatTab> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-    );
-  }
-
   Widget _buildWeaponCard(int index, Weapon weapon) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("武器 ${index + 1}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextFormField(
-                    initialValue: weapon.name,
-                    decoration: const InputDecoration(labelText: "武器名称", isDense: true, border: UnderlineInputBorder()),
-                    onChanged: (v) => weapon.name = v,
-                  ),
+        padding: EdgeInsets.zero,
+        child: AppPanel(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "武器 ${index + 1}",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w900,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    initialValue: weapon.attackBonus == 0 ? "" : weapon.attackBonus.toString(),
-                    keyboardType: const TextInputType.numberWithOptions(signed: true),
-                    decoration: const InputDecoration(labelText: "攻击加值", isDense: true, border: UnderlineInputBorder()),
-                    onChanged: (v) => weapon.attackBonus = int.tryParse(v) ?? 0,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextFormField(
+                      initialValue: weapon.name,
+                      decoration: const InputDecoration(labelText: "武器名称"),
+                      onChanged: (v) => weapon.name = v,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              initialValue: weapon.damage,
-              decoration: const InputDecoration(labelText: "伤害类型", isDense: true, border: UnderlineInputBorder()),
-              onChanged: (v) => weapon.damage = v,
-            ),
-          ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      initialValue: weapon.attackBonus == 0
+                          ? ""
+                          : weapon.attackBonus.toString(),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        signed: true,
+                      ),
+                      decoration: const InputDecoration(labelText: "攻击加值"),
+                      onChanged: (v) =>
+                          weapon.attackBonus = int.tryParse(v) ?? 0,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: weapon.damage,
+                decoration: const InputDecoration(labelText: "伤害类型"),
+                onChanged: (v) => weapon.damage = v,
+              ),
+            ],
+          ),
         ),
       ),
     );

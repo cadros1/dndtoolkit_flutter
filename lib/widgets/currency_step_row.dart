@@ -49,17 +49,19 @@ class _CurrencyStepRowState extends State<CurrencyStepRow> {
   }
 
   void _updateValue(int newValue) {
-    if (newValue >= 0) { // 钱币不允许为负数
+    if (newValue >= 0) {
+      // 钱币不允许为负数
       widget.onChanged(newValue);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
-        children:[
+        children: [
           // 左侧：钱币缩写 (CP, SP, etc.)
           SizedBox(
             width: 40,
@@ -68,20 +70,19 @@ class _CurrencyStepRowState extends State<CurrencyStepRow> {
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Colors.amber, // 使用琥珀色符合金币的直觉
+                color: Color(0xFFD97706),
               ),
             ),
           ),
-          
+
           const Spacer(), // 撑开中间空间
-          
           // 右侧：减号 - 输入框 - 加号
           Row(
             mainAxisSize: MainAxisSize.min,
-            children:[
+            children: [
               // 减号按钮
               _buildBtn(Icons.remove, () => _updateValue(widget.value - 1)),
-              
+
               // 文本输入框
               SizedBox(
                 width: 60,
@@ -89,13 +90,18 @@ class _CurrencyStepRowState extends State<CurrencyStepRow> {
                   controller: _controller,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  decoration: const InputDecoration(
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
+                    filled: false,
                     contentPadding: EdgeInsets.zero,
+                    hintStyle: TextStyle(color: cs.onSurfaceVariant),
                   ),
-                  inputFormatters:[
+                  inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly, // 仅允许正整数输入
                   ],
                   onChanged: (v) {
@@ -120,16 +126,12 @@ class _CurrencyStepRowState extends State<CurrencyStepRow> {
 
   // 辅助方法：构建圆角加减小按钮
   Widget _buildBtn(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 20),
+    return SizedBox.square(
+      dimension: 44,
+      child: IconButton.filledTonal(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        padding: EdgeInsets.zero,
       ),
     );
   }

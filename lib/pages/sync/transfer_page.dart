@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use_from_same_package
+
 // ============================================================================
 // DEPRECATED: 此文件为旧版局域网同步（数据传输）页面，已被云端同步中心替代。
 // 请使用 sync_center_page.dart。

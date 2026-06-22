@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/character.dart';
 import '../../widgets/step_input_card.dart';
+import '../../widgets/app_ui.dart';
 
 class SpellbookTab extends StatefulWidget {
   final Character character;
@@ -19,20 +20,23 @@ class _SpellbookTabState extends State<SpellbookTab> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         // --- 1. 顶部施法面板 ---
         _buildHeaderSection(),
-        
-        const Divider(height: 30),
+
+        const SizedBox(height: 18),
+        const AppSectionTitle(
+          title: "法术列表",
+          subtitle: "展开环位编辑准备状态和法术名称",
+          icon: Icons.auto_fix_high,
+        ),
 
         // --- 2. 法术列表 (0-9环) ---
         // 遍历 allSpells 列表
         ..._book.allSpells.map((group) {
           return _buildSpellLevelCard(group);
         }),
-
-        const SizedBox(height: 50),
       ],
     );
   }
@@ -63,45 +67,50 @@ class _SpellbookTabState extends State<SpellbookTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle("施法能力"),
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // 宽屏：单行 4 列
-            if (constraints.maxWidth >= 500) {
-              return Row(
-                children: [
-                  Expanded(flex: 3, child: classField),
-                  const SizedBox(width: 10),
-                  Expanded(flex: 2, child: abilityField),
-                  const SizedBox(width: 10),
-                  Expanded(child: dcCard),
-                  const SizedBox(width: 10),
-                  Expanded(child: atkCard),
-                ],
-              );
-            }
-            // 窄屏：两行排列
-            return Column(
-              children: [
-                Row(
+        const AppSectionTitle(
+          title: "施法能力",
+          subtitle: "用于法术 DC、攻击加值和冒险页法术位查看",
+          icon: Icons.school_outlined,
+        ),
+        AppPanel(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // 宽屏：单行 4 列
+              if (constraints.maxWidth >= 620) {
+                return Row(
                   children: [
                     Expanded(flex: 3, child: classField),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(flex: 2, child: abilityField),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
+                    const SizedBox(width: 12),
                     Expanded(child: dcCard),
                     const SizedBox(width: 12),
                     Expanded(child: atkCard),
                   ],
-                ),
-              ],
-            );
-          },
+                );
+              }
+              // 窄屏：两行排列
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(flex: 3, child: classField),
+                      const SizedBox(width: 10),
+                      Expanded(flex: 2, child: abilityField),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: dcCard),
+                      const SizedBox(width: 12),
+                      Expanded(child: atkCard),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
@@ -110,134 +119,163 @@ class _SpellbookTabState extends State<SpellbookTab> {
   /// 构建单层法术环位卡片
   Widget _buildSpellLevelCard(SpellLevelGroup group) {
     bool isCantrip = group.level == 0;
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        initiallyExpanded: group.level <= 1,
-        
-        // 我们将“总法术位”输入框放入 title 中
-        title: Row(
-          children: [
-            // 左侧：标题 (如 1环法术)
-            Text(
-              group.levelLabel,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            
-            const Spacer(), // 撑开空间，把后面的推到右边
 
-            // 右侧：法术位输入 (戏法不显示)
-            if (!isCantrip) ...[
-              const Text("总法术位: ", style: TextStyle(fontSize: 12, color: Colors.grey)),
-              SizedBox(
-                width: 40,
-                // 这里使用 SizedBox 包裹输入框
-                child: TextFormField(
-                  initialValue: group.totalSlots.toString(),
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                    border: UnderlineInputBorder(), // 使用下划线更简洁
-                  ),
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (v) => group.totalSlots = int.tryParse(v) ?? 0,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppPanel(
+        padding: EdgeInsets.zero,
+        child: ExpansionTile(
+          initiallyExpanded: group.level <= 1,
+
+          // 我们将“总法术位”输入框放入 title 中
+          title: Row(
+            children: [
+              // 左侧：标题 (如 1环法术)
+              Text(
+                group.levelLabel,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 8), // 给默认的展开箭头留点距离
-            ]
+
+              const Spacer(), // 撑开空间，把后面的推到右边
+              // 右侧：法术位输入 (戏法不显示)
+              if (!isCantrip) ...[
+                Text(
+                  "总法术位 ",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(
+                  width: 40,
+                  // 这里使用 SizedBox 包裹输入框
+                  child: TextFormField(
+                    initialValue: group.totalSlots.toString(),
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 4,
+                      ),
+                      border: InputBorder.none,
+                      filled: false,
+                    ),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (v) => group.totalSlots = int.tryParse(v) ?? 0,
+                  ),
+                ),
+                const SizedBox(width: 8), // 给默认的展开箭头留点距离
+              ],
+            ],
+          ),
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                children: [
+                  // 列表头
+                  if (group.spells.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        children: [
+                          if (!isCantrip)
+                            SizedBox(
+                              width: 34,
+                              child: Center(
+                                child: Text(
+                                  "准备",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "法术名称",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // 仅显示法术行，移除增删按钮
+                  ...List.generate(group.spells.length, (index) {
+                    final spell = group.spells[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        children: [
+                          // 1. 准备复选框 (戏法不显示)
+                          if (!isCantrip)
+                            SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: Checkbox(
+                                value: spell.isPrepared,
+                                onChanged: (val) {
+                                  setState(() {
+                                    spell.isPrepared = val ?? false;
+                                  });
+                                },
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+
+                          const SizedBox(width: 10),
+
+                          // 2. 法术名称输入
+                          Expanded(
+                            child: TextFormField(
+                              initialValue: spell.name,
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                border: InputBorder.none,
+                                filled: false,
+                                hintText: '法术名称${index + 1}',
+                                hintStyle: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              onChanged: (v) => spell.name = v,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
           ],
         ),
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              children: [
-                // 列表头
-                if (group.spells.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Row(
-                      children: [
-                        if (!isCantrip) 
-                          const SizedBox(width: 30, child: Center(child: Text("准备", style: TextStyle(fontSize: 10, color: Colors.grey)))),
-                        const SizedBox(width: 10),
-                        const Expanded(child: Text("法术名称", style: TextStyle(fontSize: 12, color: Colors.grey))),
-                      ],
-                    ),
-                  ),
-                
-                // 仅显示法术行，移除增删按钮
-                ...List.generate(group.spells.length, (index) {
-                  final spell = group.spells[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4.0),
-                    child: Row(
-                      children: [
-                        // 1. 准备复选框 (戏法不显示)
-                        if (!isCantrip)
-                          SizedBox(
-                            width: 30,
-                            height: 30,
-                            child: Checkbox(
-                              value: spell.isPrepared,
-                              onChanged: (val) {
-                                setState(() {
-                                  spell.isPrepared = val ?? false;
-                                });
-                              },
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                        
-                        const SizedBox(width: 10),
-
-                        // 2. 法术名称输入
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: spell.name,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                              border: const UnderlineInputBorder(),
-                              hintText: '法术名称${index + 1}',
-                              hintStyle: const TextStyle(color: Colors.grey),
-                            ),
-                            onChanged: (v) => spell.name = v,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 
   // --- 辅助组件 ---
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    );
-  }
 
   Widget _buildTextField({
     required String label,
@@ -247,12 +285,7 @@ class _SpellbookTabState extends State<SpellbookTab> {
   }) {
     return TextFormField(
       initialValue: initialValue,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        border: const OutlineInputBorder(),
-        isDense: true,
-      ),
+      decoration: InputDecoration(labelText: label, hintText: hint),
       onChanged: onChanged,
     );
   }

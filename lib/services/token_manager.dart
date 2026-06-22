@@ -35,6 +35,7 @@ class TokenManager {
     if (existingToken != null && existingToken.isNotEmpty) {
       return existingToken;
     }
+    if (!context.mounted) return existingToken;
 
     // 没有令牌，弹窗询问用户是否生成
     String? newToken;
@@ -96,7 +97,7 @@ class TokenManager {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "⚠️ 请妥善保存此令牌，它相当于您云端数据的钥匙。",
+                  "请妥善保存此令牌，它相当于您云端数据的钥匙。",
                   style: TextStyle(
                     color: Theme.of(ctx).colorScheme.error,
                     fontWeight: FontWeight.w500,

@@ -63,35 +63,46 @@ class _StepInputCardState extends State<StepInputCard> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Card(
-      elevation: 2,
       margin: EdgeInsets.zero, // 由外部控制间距
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
         child: Column(
           children: [
             Text(
               widget.label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: cs.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // 减号
                 _buildBtn(Icons.remove, () => _updateValue(widget.value - 1)),
-                
+
                 // 输入框
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    keyboardType: const TextInputType.numberWithOptions(signed: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      signed: true,
+                    ),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: cs.onSurface,
+                    ),
                     decoration: const InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
+                      filled: false,
                       contentPadding: EdgeInsets.zero,
                     ),
                     inputFormatters: [
@@ -105,7 +116,7 @@ class _StepInputCardState extends State<StepInputCard> {
                     },
                   ),
                 ),
-                
+
                 // 加号
                 _buildBtn(Icons.add, () => _updateValue(widget.value + 1)),
               ],
@@ -117,16 +128,12 @@ class _StepInputCardState extends State<StepInputCard> {
   }
 
   Widget _buildBtn(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 18, color: Colors.blue),
+    return SizedBox.square(
+      dimension: 44,
+      child: IconButton.filledTonal(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        padding: EdgeInsets.zero,
       ),
     );
   }

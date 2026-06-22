@@ -64,9 +64,10 @@ class _SpellSlotStepRowState extends State<SpellSlotStepRow> {
   @override
   Widget build(BuildContext context) {
     final isZero = widget.current == 0;
+    final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         children: [
           SizedBox(
@@ -76,7 +77,7 @@ class _SpellSlotStepRowState extends State<SpellSlotStepRow> {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: isZero ? Colors.red : Colors.grey.shade700,
+                color: isZero ? cs.error : cs.primary,
               ),
             ),
           ),
@@ -97,16 +98,15 @@ class _SpellSlotStepRowState extends State<SpellSlotStepRow> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isZero ? Colors.red : Colors.black,
+                    color: isZero ? cs.error : cs.onSurface,
                   ),
                   decoration: const InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
+                    filled: false,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (v) {
                     if (v.isEmpty) {
                       widget.onCurrentChanged(0);
@@ -132,16 +132,12 @@ class _SpellSlotStepRowState extends State<SpellSlotStepRow> {
   }
 
   Widget _buildBtn(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 20),
+    return SizedBox.square(
+      dimension: 44,
+      child: IconButton.filledTonal(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        padding: EdgeInsets.zero,
       ),
     );
   }
