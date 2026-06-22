@@ -113,7 +113,7 @@ class _SyncCenterPageState extends State<SyncCenterPage>
       _showLoadingOverlay();
 
       final character = await _cloudService.downloadCharacter(item.id);
-      await _storage.saveCharacter(character);
+      await _storage.saveDownloadedCharacter(character);
 
       if (mounted) {
         Navigator.pop(context); // 关闭加载
@@ -169,6 +169,16 @@ class _SyncCenterPageState extends State<SyncCenterPage>
       _showLoadingOverlay();
 
       await _cloudService.uploadCharacter(item);
+      final cloud = await _cloudService.fetchCloudList();
+      final uploadedSummary = cloud.cast<CloudCharacterSummary?>().firstWhere(
+        (c) => c?.id == item.id,
+        orElse: () => null,
+      );
+      if (uploadedSummary?.updatedAt != null) {
+        item.updatedAt = uploadedSummary!.updatedAt;
+        await _storage.saveDownloadedCharacter(item);
+      }
+      final local = await _storage.loadAllCharacters();
 
       if (mounted) {
         Navigator.pop(context); // 关闭加载
@@ -176,9 +186,11 @@ class _SyncCenterPageState extends State<SyncCenterPage>
             ? "未命名"
             : item.profile.characterName;
         SnackBarService.showSuccess('「$name」上传成功');
-        // 刷新云端列表（用于更新 updated_at 等）
-        final cloud = await _cloudService.fetchCloudList();
-        setState(() => _cloudList = cloud);
+        // 刷新云端与本地列表（用于更新 updated_at 等）
+        setState(() {
+          _cloudList = cloud;
+          _localList = local;
+        });
       }
     } catch (e) {
       if (mounted) {

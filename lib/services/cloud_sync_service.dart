@@ -5,6 +5,28 @@ import '../models/character.dart';
 import 'character_storage.dart';
 import 'token_manager.dart';
 
+Map<String, dynamic> _decodeCharacterData(Object? rawData, String context) {
+  if (rawData is Map) {
+    return Map<String, dynamic>.from(rawData);
+  }
+
+  if (rawData is String) {
+    try {
+      final decoded = jsonDecode(rawData);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      throw FormatException('$context 的 data 不是 JSON 对象');
+    } on FormatException {
+      rethrow;
+    } catch (e) {
+      throw FormatException('$context 的 data 不是有效 JSON：$e');
+    }
+  }
+
+  throw FormatException('$context 缺少可识别的角色 data');
+}
+
 /// 云端角色摘要（用于列表展示）
 class CloudCharacterSummary {
   final String id;
@@ -20,21 +42,13 @@ class CloudCharacterSummary {
   });
 
   factory CloudCharacterSummary.fromRow(Map<String, dynamic> row) {
-    final rawData = row['data'];
-    // Supabase JSONB 可能返回 String 或已解析的 Map，这里兼容两种情况
-    final Map<String, dynamic> data;
-    if (rawData is Map<String, dynamic>) {
-      data = rawData;
-    } else if (rawData is String) {
-      data = json.decode(rawData) as Map<String, dynamic>;
-    } else {
-      data = {};
-    }
+    final data = _decodeCharacterData(row['data'], '云端角色 ${row['id']}');
 
     final name = data['Profile']?["CharacterName"] as String? ?? '未命名角色';
     final race = data['Profile']?["Race"] as String? ?? '';
     final cls = data['Profile']?["ClassAndLevel"] as String? ?? '';
-    final details = '$race${race.isNotEmpty && cls.isNotEmpty ? " | " : ""}$cls';
+    final details =
+        '$race${race.isNotEmpty && cls.isNotEmpty ? " | " : ""}$cls';
 
     DateTime? updatedAt;
     if (row['updated_at'] != null) {
@@ -55,7 +69,8 @@ class CloudCharacterSummary {
 class CloudSyncService {
   // Supabase 配置
   static const String _supabaseUrl = 'https://kxmvhqhrjwnzcggbqlhb.supabase.co';
-  static const String _supabaseAnonKey = 'sb_publishable_gwJWSUQ_Ga18muqkL4JgHQ_urzgq0Mh';
+  static const String _supabaseAnonKey =
+      'sb_publishable_gwJWSUQ_Ga18muqkL4JgHQ_urzgq0Mh';
 
   SupabaseClient? _client;
   String? _currentToken;
@@ -97,7 +112,8 @@ class CloudSyncService {
   /// 上传前去除 JSON 中的 base64 图片内容（减小体积，暂不考虑图片同步）
   Map<String, dynamic> _stripPortrait(Map<String, dynamic> json) {
     final profile = json['Profile'];
-    if (profile is Map<String, dynamic> && profile.containsKey('PortraitBase64')) {
+    if (profile is Map<String, dynamic> &&
+        profile.containsKey('PortraitBase64')) {
       profile['PortraitBase64'] = '';
     }
     return json;
@@ -123,9 +139,7 @@ class CloudSyncService {
   Future<List<CloudCharacterSummary>> fetchCloudList() async {
     final c = await client;
 
-    final response = await c
-        .from('characters')
-        .select('id, data, updated_at');
+    final response = await c.from('characters').select('id, data, updated_at');
 
     return (response as List<dynamic>)
         .map((e) => CloudCharacterSummary.fromRow(e as Map<String, dynamic>))
@@ -144,7 +158,7 @@ class CloudSyncService {
         .single();
 
     final row = response;
-    final data = row['data'] as Map<String, dynamic>? ?? {};
+    final data = _decodeCharacterData(row['data'], '云端角色 $id');
 
     // 确保 id 字段与数据库主键一致
     data['Id'] = id;
