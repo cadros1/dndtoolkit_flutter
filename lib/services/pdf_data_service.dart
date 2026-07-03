@@ -1,3 +1,5 @@
+// ignore_for_file: implementation_imports
+
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/services.dart';
@@ -5,6 +7,16 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/graphics/images/pdf_image.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/io/pdf_constants.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/io/pdf_cross_table.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_array.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_dictionary.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_name.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_number.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_reference_holder.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_stream.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/interfaces/pdf_interface.dart';
 import '../models/character.dart';
 import 'snack_bar_service.dart';
 
@@ -17,6 +29,61 @@ class PdfDataService {
   static final List<String> _saves = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 
   static PdfFont? _cjkFont;
+
+  static const String characterImageFieldName = 'Character Image';
+
+  static Uint8List? extractButtonIconImageBytes(
+    List<int> pdfBytes, {
+    String fieldName = characterImageFieldName,
+  }) {
+    final PdfDocument document = PdfDocument(inputBytes: pdfBytes);
+    try {
+      final field = _findField(document.form, fieldName);
+      if (field is! PdfButtonField) return null;
+
+      final fieldDictionary = _getFieldDictionary(field);
+      if (fieldDictionary == null) return null;
+
+      return _extractImageBytesFromButtonIcon(fieldDictionary) ??
+          _extractImageBytesFromButtonAppearance(fieldDictionary);
+    } catch (_) {
+      return null;
+    } finally {
+      document.dispose();
+    }
+  }
+
+  static List<int>? setButtonIconImageBytes(
+    List<int> pdfBytes,
+    List<int> imageBytes, {
+    String fieldName = characterImageFieldName,
+  }) {
+    final PdfDocument document = PdfDocument(inputBytes: pdfBytes);
+    try {
+      final field = _findField(document.form, fieldName);
+      if (field is! PdfButtonField) return null;
+
+      final fieldDictionary = _getFieldDictionary(field);
+      if (fieldDictionary == null) return null;
+
+      final image = PdfBitmap(imageBytes);
+      PdfImageHelper.save(image);
+      final imageStream = PdfImageHelper.getImageStream(image);
+      if (imageStream == null) return null;
+
+      final geometry = _buildIconGeometry(image, field);
+      final iconForm = _createIconFormStream(imageStream, geometry);
+
+      _setButtonIcon(fieldDictionary, iconForm);
+      _setButtonAppearance(fieldDictionary, iconForm, geometry);
+
+      return document.saveSync();
+    } catch (_) {
+      return null;
+    } finally {
+      document.dispose();
+    }
+  }
 
   /// 导入角色卡 PDF
   static Future<Character?> importCharacterPdfAsync() async {
@@ -327,6 +394,502 @@ class PdfDataService {
 
   // ==================== 辅助方法 ====================
 
+  static PdfField? _findField(PdfForm form, String fieldName) {
+    final trimmedName = fieldName.trim();
+    for (int i = 0; i < form.fields.count; i++) {
+      final field = form.fields[i];
+      if (field.name?.trim() == trimmedName) {
+        return field;
+      }
+    }
+    return null;
+  }
+
+  static PdfDictionary? _getFieldDictionary(PdfField field) {
+    final element = IPdfWrapper.getElement(field);
+    return _asDictionary(element);
+  }
+
+  static Uint8List? _extractImageBytesFromButtonIcon(
+    PdfDictionary fieldDictionary,
+  ) {
+    final mk = _asDictionary(fieldDictionary[PdfDictionaryProperties.mk]);
+    if (mk == null) return null;
+
+    final icon = _asDictionary(mk[PdfDictionaryProperties.i]);
+    if (icon == null) return null;
+
+    return _extractFirstSupportedImageBytes(icon);
+  }
+
+  static Uint8List? _extractImageBytesFromButtonAppearance(
+    PdfDictionary fieldDictionary,
+  ) {
+    final appearance = _asDictionary(
+      fieldDictionary[PdfDictionaryProperties.ap],
+    );
+    if (appearance == null) return null;
+
+    final normalAppearance = _asDictionary(
+      appearance[PdfDictionaryProperties.n],
+    );
+    if (normalAppearance == null) return null;
+
+    return _extractFirstSupportedImageBytes(normalAppearance);
+  }
+
+  static Uint8List? _extractFirstSupportedImageBytes(PdfDictionary object) {
+    final stream = _asStream(object);
+    if (stream != null && _isImageStream(stream)) {
+      return _readSupportedImageStreamBytes(stream);
+    }
+
+    final resources = _asDictionary(object[PdfDictionaryProperties.resources]);
+    final xObjects = _asDictionary(resources?[PdfDictionaryProperties.xObject]);
+    final items = xObjects?.items;
+    if (items == null) return null;
+
+    for (final value in items.values) {
+      final child = _asDictionary(value);
+      if (child == null) continue;
+
+      final imageBytes = _extractFirstSupportedImageBytes(child);
+      if (imageBytes != null) return imageBytes;
+    }
+
+    return null;
+  }
+
+  static Uint8List? _readSupportedImageStreamBytes(PdfStream stream) {
+    final data = stream.dataStream;
+    if (data == null || data.length < 4) return null;
+
+    if (_hasFilter(stream, PdfDictionaryProperties.dctDecode)) {
+      return Uint8List.fromList(data);
+    }
+
+    if (_hasFilter(stream, PdfDictionaryProperties.flateDecode) ||
+        stream[PdfDictionaryProperties.filter] == null) {
+      return _wrapPdfImageStreamAsPng(stream);
+    }
+
+    return null;
+  }
+
+  static bool _isImageStream(PdfStream stream) {
+    final subtype = _dereference(stream[PdfDictionaryProperties.subtype]);
+    return subtype is PdfName && subtype.name == PdfDictionaryProperties.image;
+  }
+
+  static bool _hasFilter(PdfStream stream, String filterName) {
+    final filter = _dereference(stream[PdfDictionaryProperties.filter]);
+    if (filter is PdfName) {
+      return filter.name == filterName;
+    }
+
+    if (filter is PdfArray) {
+      for (final value in filter.elements) {
+        final item = _dereference(value);
+        if (item is PdfName && item.name == filterName) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  static Uint8List? _wrapPdfImageStreamAsPng(PdfStream stream) {
+    final width = _getDictionaryInt(stream, PdfDictionaryProperties.width);
+    final height = _getDictionaryInt(stream, PdfDictionaryProperties.height);
+    final bitsPerComponent = _getDictionaryInt(
+      stream,
+      PdfDictionaryProperties.bitsPerComponent,
+    );
+    if (width == null ||
+        height == null ||
+        bitsPerComponent != 8 ||
+        width <= 0 ||
+        height <= 0) {
+      return null;
+    }
+
+    final colorSpace = _dereference(stream[PdfDictionaryProperties.colorSpace]);
+    final int colorChannels;
+    final int pngColorType;
+    if (colorSpace is PdfName &&
+        colorSpace.name == PdfDictionaryProperties.deviceRGB) {
+      colorChannels = 3;
+      pngColorType = 2;
+    } else if (colorSpace is PdfName &&
+        colorSpace.name == PdfDictionaryProperties.deviceGray) {
+      colorChannels = 1;
+      pngColorType = 0;
+    } else {
+      return null;
+    }
+
+    final imageData = _readPossiblyFlateDecodedData(stream);
+    if (imageData == null) return null;
+
+    final pixelCount = width * height;
+    final expectedColorLength = pixelCount * colorChannels;
+    if (imageData.length < expectedColorLength) return null;
+
+    final alphaData = _readAlphaMaskData(stream, pixelCount);
+    final rawPngRows = alphaData == null
+        ? _createPngRows(imageData, width, height, colorChannels, colorChannels)
+        : _createRgbaPngRows(
+            imageData,
+            alphaData,
+            width,
+            height,
+            colorChannels,
+          );
+    final colorType = alphaData == null ? pngColorType : 6;
+
+    return Uint8List.fromList(
+      _createPngBytes(
+        width: width,
+        height: height,
+        bitDepth: 8,
+        colorType: colorType,
+        rawRows: rawPngRows,
+      ),
+    );
+  }
+
+  static List<int>? _readAlphaMaskData(PdfStream stream, int pixelCount) {
+    final maskStream = _asStream(stream[PdfDictionaryProperties.sMask]);
+    if (maskStream == null) return null;
+
+    final bitsPerComponent = _getDictionaryInt(
+      maskStream,
+      PdfDictionaryProperties.bitsPerComponent,
+    );
+    if (bitsPerComponent != 8) return null;
+
+    final maskData = _readPossiblyFlateDecodedData(maskStream);
+    if (maskData == null || maskData.length < pixelCount) return null;
+
+    return maskData;
+  }
+
+  static List<int>? _readPossiblyFlateDecodedData(PdfStream stream) {
+    final data = stream.dataStream;
+    if (data == null) return null;
+
+    if (!_hasFilter(stream, PdfDictionaryProperties.flateDecode)) {
+      return List<int>.from(data);
+    }
+
+    final copiedStream = PdfStream(PdfDictionary(stream), List<int>.from(data));
+    copiedStream.decompress();
+    return copiedStream.dataStream == null
+        ? null
+        : List<int>.from(copiedStream.dataStream!);
+  }
+
+  static List<int> _createPngRows(
+    List<int> imageData,
+    int width,
+    int height,
+    int sourceChannels,
+    int targetChannels,
+  ) {
+    final rowLength = width * targetChannels;
+    final rows = <int>[];
+    for (int y = 0; y < height; y++) {
+      rows.add(0);
+      final sourceRowStart = y * width * sourceChannels;
+      rows.addAll(
+        imageData.sublist(sourceRowStart, sourceRowStart + rowLength),
+      );
+    }
+    return rows;
+  }
+
+  static List<int> _createRgbaPngRows(
+    List<int> imageData,
+    List<int> alphaData,
+    int width,
+    int height,
+    int sourceChannels,
+  ) {
+    final rows = <int>[];
+    for (int y = 0; y < height; y++) {
+      rows.add(0);
+      for (int x = 0; x < width; x++) {
+        final pixelIndex = y * width + x;
+        final colorIndex = pixelIndex * sourceChannels;
+        if (sourceChannels == 1) {
+          final gray = imageData[colorIndex];
+          rows.add(gray);
+          rows.add(gray);
+          rows.add(gray);
+        } else {
+          rows.add(imageData[colorIndex]);
+          rows.add(imageData[colorIndex + 1]);
+          rows.add(imageData[colorIndex + 2]);
+        }
+        rows.add(alphaData[pixelIndex]);
+      }
+    }
+    return rows;
+  }
+
+  static List<int> _createPngBytes({
+    required int width,
+    required int height,
+    required int bitDepth,
+    required int colorType,
+    required List<int> rawRows,
+  }) {
+    final bytes = <int>[137, 80, 78, 71, 13, 10, 26, 10];
+    _addPngChunk(bytes, 'IHDR', <int>[
+      ..._uint32Bytes(width),
+      ..._uint32Bytes(height),
+      bitDepth,
+      colorType,
+      0,
+      0,
+      0,
+    ]);
+    _addPngChunk(bytes, 'IDAT', ZLibEncoder().convert(rawRows));
+    _addPngChunk(bytes, 'IEND', const <int>[]);
+    return bytes;
+  }
+
+  static void _addPngChunk(List<int> output, String type, List<int> data) {
+    final typeBytes = type.codeUnits;
+    output.addAll(_uint32Bytes(data.length));
+    output.addAll(typeBytes);
+    output.addAll(data);
+    output.addAll(_uint32Bytes(_crc32(<int>[...typeBytes, ...data])));
+  }
+
+  static List<int> _uint32Bytes(int value) {
+    return <int>[
+      (value >> 24) & 0xff,
+      (value >> 16) & 0xff,
+      (value >> 8) & 0xff,
+      value & 0xff,
+    ];
+  }
+
+  static int _crc32(List<int> data) {
+    int crc = 0xffffffff;
+    for (final byte in data) {
+      crc ^= byte;
+      for (int i = 0; i < 8; i++) {
+        if ((crc & 1) == 1) {
+          crc = 0xedb88320 ^ (crc >> 1);
+        } else {
+          crc >>= 1;
+        }
+      }
+    }
+    return (crc ^ 0xffffffff) & 0xffffffff;
+  }
+
+  static int? _getDictionaryInt(PdfDictionary dictionary, String key) {
+    final value = _dereference(dictionary[key]);
+    return value is PdfNumber ? value.value?.toInt() : null;
+  }
+
+  static _ButtonIconGeometry _buildIconGeometry(
+    PdfBitmap image,
+    PdfButtonField field,
+  ) {
+    final bounds = field.bounds;
+    final buttonWidth = max(1.0, bounds.width);
+    final buttonHeight = max(1.0, bounds.height);
+    final imageWidth = max(1.0, image.width * 0.24);
+    final imageHeight = max(1.0, image.height * 0.24);
+    final clipWidth = max(1.0, buttonWidth - 4);
+    final clipHeight = max(1.0, buttonHeight - 4);
+    final scale = min(clipWidth / imageWidth, clipHeight / imageHeight);
+    final drawnWidth = imageWidth * scale;
+    final drawnHeight = imageHeight * scale;
+
+    return _ButtonIconGeometry(
+      buttonWidth: buttonWidth,
+      buttonHeight: buttonHeight,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      appearanceClipWidth: clipWidth,
+      appearanceClipHeight: clipHeight,
+      appearanceScale: scale,
+      appearanceOffsetX: 2 + (clipWidth - drawnWidth) / 2,
+      appearanceOffsetY: 2 + (clipHeight - drawnHeight) / 2,
+    );
+  }
+
+  static PdfStream _createIconFormStream(
+    PdfStream imageStream,
+    _ButtonIconGeometry geometry,
+  ) {
+    final iconForm = PdfStream();
+    iconForm[PdfDictionaryProperties.type] = PdfName(
+      PdfDictionaryProperties.xObject,
+    );
+    iconForm[PdfDictionaryProperties.subtype] = PdfName(
+      PdfDictionaryProperties.form,
+    );
+    iconForm[PdfDictionaryProperties.bBox] = PdfArray(<double>[
+      0,
+      0,
+      geometry.imageWidth,
+      geometry.imageHeight,
+    ]);
+    iconForm[PdfDictionaryProperties.matrix] = PdfArray(<double>[
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+    ]);
+    iconForm[PdfDictionaryProperties.resources] = _createResourcesDictionary(
+      'Im0',
+      imageStream,
+      includeImageProcSet: true,
+    );
+    iconForm.compress = false;
+    iconForm.write(
+      'q\n'
+      '${_pdfNumber(geometry.imageWidth)} 0 0 '
+      '${_pdfNumber(geometry.imageHeight)} 0 0 cm\n'
+      '/Im0 Do\n'
+      'Q\n',
+    );
+
+    return iconForm;
+  }
+
+  static void _setButtonIcon(
+    PdfDictionary fieldDictionary,
+    PdfStream iconForm,
+  ) {
+    final mk =
+        _asDictionary(fieldDictionary[PdfDictionaryProperties.mk]) ??
+        PdfDictionary();
+    mk[PdfDictionaryProperties.i] = PdfReferenceHolder(iconForm);
+    if (!mk.containsKey('IF')) {
+      mk['IF'] = PdfDictionary();
+    }
+    if (!mk.containsKey('TP')) {
+      mk['TP'] = PdfNumber(1);
+    }
+    fieldDictionary[PdfDictionaryProperties.mk] = mk;
+  }
+
+  static void _setButtonAppearance(
+    PdfDictionary fieldDictionary,
+    PdfStream iconForm,
+    _ButtonIconGeometry geometry,
+  ) {
+    final appearance =
+        _asDictionary(fieldDictionary[PdfDictionaryProperties.ap]) ??
+        PdfDictionary();
+    appearance[PdfDictionaryProperties.n] = PdfReferenceHolder(
+      _createNormalAppearanceStream(iconForm, geometry),
+    );
+    fieldDictionary[PdfDictionaryProperties.ap] = appearance;
+  }
+
+  static PdfStream _createNormalAppearanceStream(
+    PdfStream iconForm,
+    _ButtonIconGeometry geometry,
+  ) {
+    final appearance = PdfStream();
+    appearance[PdfDictionaryProperties.type] = PdfName(
+      PdfDictionaryProperties.xObject,
+    );
+    appearance[PdfDictionaryProperties.subtype] = PdfName(
+      PdfDictionaryProperties.form,
+    );
+    appearance[PdfDictionaryProperties.bBox] = PdfArray(<double>[
+      0,
+      0,
+      geometry.buttonWidth,
+      geometry.buttonHeight,
+    ]);
+    appearance[PdfDictionaryProperties.matrix] = PdfArray(<double>[
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+    ]);
+    appearance[PdfDictionaryProperties.resources] = _createResourcesDictionary(
+      'FRM',
+      iconForm,
+      includeImageProcSet: false,
+    );
+    appearance.compress = false;
+    appearance.write(
+      'q\n'
+      '1 1 ${_pdfNumber(geometry.appearanceClipWidth)} '
+      '${_pdfNumber(geometry.appearanceClipHeight)} re\n'
+      'W\n'
+      'n\n'
+      'q\n'
+      '${_pdfNumber(geometry.appearanceScale)} 0 0 '
+      '${_pdfNumber(geometry.appearanceScale)} '
+      '${_pdfNumber(geometry.appearanceOffsetX)} '
+      '${_pdfNumber(geometry.appearanceOffsetY)} cm\n'
+      '/FRM Do\n'
+      'Q\n'
+      'Q\n',
+    );
+
+    return appearance;
+  }
+
+  static PdfDictionary _createResourcesDictionary(
+    String objectName,
+    IPdfPrimitive object, {
+    required bool includeImageProcSet,
+  }) {
+    final xObjects = PdfDictionary();
+    xObjects[objectName] = PdfReferenceHolder(object);
+
+    final resources = PdfDictionary();
+    resources[PdfDictionaryProperties.xObject] = xObjects;
+    if (includeImageProcSet) {
+      resources[PdfDictionaryProperties.procSet] = PdfArray(<PdfName>[
+        PdfName(PdfDictionaryProperties.pdf),
+        PdfName('ImageC'),
+      ]);
+    }
+    return resources;
+  }
+
+  static IPdfPrimitive? _dereference(IPdfPrimitive? object) {
+    if (object == null) return null;
+    return PdfCrossTable.dereference(object);
+  }
+
+  static PdfDictionary? _asDictionary(IPdfPrimitive? object) {
+    final dereferenced = _dereference(object);
+    return dereferenced is PdfDictionary ? dereferenced : null;
+  }
+
+  static PdfStream? _asStream(IPdfPrimitive? object) {
+    final dereferenced = _dereference(object);
+    return dereferenced is PdfStream ? dereferenced : null;
+  }
+
+  static String _pdfNumber(double value) {
+    var text = value.toStringAsFixed(4);
+    text = text.replaceFirst(RegExp(r'0+$'), '');
+    text = text.replaceFirst(RegExp(r'\.$'), '');
+    if (text == '-0' || text.isEmpty) return '0';
+    return text;
+  }
+
   static String _getText(Map<String, PdfField> map, String key) {
     final field = map[key.trim()];
     if (field is PdfTextBoxField) {
@@ -428,4 +991,28 @@ class PdfDataService {
       default: return false;
     }
   }
+}
+
+class _ButtonIconGeometry {
+  const _ButtonIconGeometry({
+    required this.buttonWidth,
+    required this.buttonHeight,
+    required this.imageWidth,
+    required this.imageHeight,
+    required this.appearanceClipWidth,
+    required this.appearanceClipHeight,
+    required this.appearanceScale,
+    required this.appearanceOffsetX,
+    required this.appearanceOffsetY,
+  });
+
+  final double buttonWidth;
+  final double buttonHeight;
+  final double imageWidth;
+  final double imageHeight;
+  final double appearanceClipWidth;
+  final double appearanceClipHeight;
+  final double appearanceScale;
+  final double appearanceOffsetX;
+  final double appearanceOffsetY;
 }
