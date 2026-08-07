@@ -25,6 +25,8 @@ class _AdventurePageState extends State<AdventurePage>
   int _dieSize = 20;
   int _rollCount = 1;
   _AdvantageState _advantage = _AdvantageState.none;
+  bool _isRollCenterOpen = false;
+  VoidCallback? _refreshRollCenter;
 
   // --- 日志列表 ---
   final List<RollLog> _logs = [];
@@ -95,66 +97,40 @@ class _AdventurePageState extends State<AdventurePage>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= kAppDesktopBreakpoint) {
-          return _buildDesktopLayout();
-        }
-        return _buildMobileLayout();
+        return _buildOverviewLayout(
+          isDesktop: constraints.maxWidth >= kAppDesktopBreakpoint,
+        );
       },
     );
   }
 
-  // ---- 移动端布局 ----
-  Widget _buildMobileLayout() {
+  void _updateRollCenterState(VoidCallback update) {
+    if (!mounted) return;
+    setState(update);
+    _refreshRollCenter?.call();
+  }
+
+  void _clearRollLogs() {
+    _updateRollCenterState(_logs.clear);
+  }
+
+  // ---- 冒险概览：检定功能统一从独立弹层进入 ----
+  Widget _buildOverviewLayout({required bool isDesktop}) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: false,
       body: SafeArea(
-        top: false,
-        child: Column(
+        top: isDesktop,
+        child: ListView(
+          padding: EdgeInsets.only(bottom: isDesktop ? 32 : 24),
           children: [
-            _buildHeaderArea(isDesktop: false),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
-                children: [
-                  _buildRollControlPanel(isDesktop: false),
-                  const SizedBox(height: 10),
-                  _buildLogSection(fill: false),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---- 桌面端布局 ----
-  Widget _buildDesktopLayout() {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeaderArea(isDesktop: true),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 骰子面板：固定宽度，内部可滚动
-                  SizedBox(
-                    width: 470,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 12, 12, 24),
-                      child: _buildRollControlPanel(isDesktop: true),
-                    ),
-                  ),
-                  VerticalDivider(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                  // 日志区：占据剩余宽度
-                  Expanded(child: _buildLogSection(fill: true)),
-                ],
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktop ? 980 : double.infinity,
+                ),
+                child: _buildHeaderArea(isDesktop: isDesktop),
               ),
             ),
           ],
@@ -177,6 +153,8 @@ class _AdventurePageState extends State<AdventurePage>
           _buildTopBar(isDesktop: isDesktop),
           SizedBox(height: isDesktop ? 10 : 8),
           _buildBasicInfoCard(isDesktop: isDesktop),
+          SizedBox(height: isDesktop ? 12 : 10),
+          _buildRollEntryButton(isDesktop: isDesktop),
         ],
       ),
     );
@@ -193,7 +171,7 @@ class _AdventurePageState extends State<AdventurePage>
           : TextButton.icon(
               icon: const Icon(Icons.delete_outline, size: 16),
               label: const Text("清空"),
-              onPressed: () => setState(() => _logs.clear()),
+              onPressed: _clearRollLogs,
             ),
     );
 
@@ -466,35 +444,16 @@ class _AdventurePageState extends State<AdventurePage>
                   ],
                 );
 
-                if (isDesktop || constraints.maxWidth < 390) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      stats,
-                      if (!isDesktop) ...[
-                        const SizedBox(height: 6),
-                        _buildBottomSheetEntryChips(isDesktop: isDesktop),
-                      ],
-                    ],
-                  );
-                }
-
-                return Row(
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: stats),
-                    const SizedBox(width: 6),
-                    SizedBox(
-                      width: 142,
-                      child: _buildBottomSheetEntryChips(isDesktop: isDesktop),
-                    ),
+                    Align(alignment: Alignment.centerLeft, child: stats),
+                    SizedBox(height: isDesktop ? 10 : 8),
+                    _buildBottomSheetEntryChips(isDesktop: isDesktop),
                   ],
                 );
               },
             ),
-            if (isDesktop) ...[
-              const SizedBox(height: 10),
-              _buildBottomSheetEntryChips(isDesktop: isDesktop),
-            ],
           ],
         ),
       ),
@@ -507,6 +466,7 @@ class _AdventurePageState extends State<AdventurePage>
         ? VisualDensity.standard
         : const VisualDensity(horizontal: -2, vertical: -2);
     final chips = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         ActionChip.elevated(
           visualDensity: density,
@@ -526,17 +486,482 @@ class _AdventurePageState extends State<AdventurePage>
       ],
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 桌面端不需要横向滚动
-        if (isDesktop) {
-          return Align(alignment: Alignment.centerLeft, child: chips);
-        }
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: chips,
+    return Align(alignment: Alignment.centerLeft, child: chips);
+  }
+
+  Widget _buildRollEntryButton({required bool isDesktop}) {
+    return SizedBox(
+      width: double.infinity,
+      height: isDesktop ? 52 : 48,
+      child: FilledButton.icon(
+        onPressed: _isRollCenterOpen ? null : _showRollCenter,
+        icon: const Icon(Icons.casino_outlined),
+        label: const Text(
+          "进行检定",
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRollCenter() async {
+    if (_isRollCenterOpen || _selectedChar == null) return;
+
+    setState(() => _isRollCenterOpen = true);
+    final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+
+    try {
+      if (isDesktop) {
+        await _showDesktopRollCenter();
+      } else {
+        await _showMobileRollCenter();
+      }
+    } finally {
+      _refreshRollCenter = null;
+      if (mounted) {
+        setState(() => _isRollCenterOpen = false);
+      }
+    }
+  }
+
+  Future<void> _showMobileRollCenter() async {
+    var showOptions = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            _refreshRollCenter = () {
+              if (context.mounted) setModalState(() {});
+            };
+
+            void selectOption(RollOption option) {
+              setState(() => _currentOption = option);
+              setModalState(() => showOptions = false);
+            }
+
+            return PopScope(
+              canPop: !showOptions,
+              onPopInvokedWithResult: (didPop, result) {
+                if (!didPop && showOptions) {
+                  setModalState(() => showOptions = false);
+                }
+              },
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.92,
+                minChildSize: 0.65,
+                maxChildSize: 0.97,
+                builder: (context, scrollController) {
+                  return Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        _buildRollCenterHeader(
+                          showOptions: showOptions,
+                          showDragHandle: true,
+                          onBack: () =>
+                              setModalState(() => showOptions = false),
+                          onClose: () => Navigator.pop(sheetContext),
+                        ),
+                        Expanded(
+                          child: showOptions
+                              ? _buildRollOptionView(onSelected: selectOption)
+                              : SingleChildScrollView(
+                                  controller: scrollController,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    28,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _buildRollControlPanel(
+                                        isDesktop: false,
+                                        onChooseOption: () => setModalState(
+                                          () => showOptions = true,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      _buildLogSection(fill: false),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Future<void> _showDesktopRollCenter() async {
+    var showOptions = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            _refreshRollCenter = () {
+              if (context.mounted) setModalState(() {});
+            };
+
+            void selectOption(RollOption option) {
+              setState(() => _currentOption = option);
+              setModalState(() => showOptions = false);
+            }
+
+            final screen = MediaQuery.sizeOf(context);
+            return PopScope(
+              canPop: !showOptions,
+              onPopInvokedWithResult: (didPop, result) {
+                if (!didPop && showOptions) {
+                  setModalState(() => showOptions = false);
+                }
+              },
+              child: Dialog(
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: min(1120, screen.width - 64),
+                  height: min(760, screen.height - 64),
+                  child: Column(
+                    children: [
+                      _buildRollCenterHeader(
+                        showOptions: showOptions,
+                        showDragHandle: false,
+                        onBack: () => setModalState(() => showOptions = false),
+                        onClose: () => Navigator.pop(dialogContext),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: showOptions
+                            ? _buildRollOptionView(onSelected: selectOption)
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 440,
+                                    child: SingleChildScrollView(
+                                      padding: const EdgeInsets.all(20),
+                                      child: _buildRollControlPanel(
+                                        isDesktop: true,
+                                        onChooseOption: () => setModalState(
+                                          () => showOptions = true,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  VerticalDivider(
+                                    width: 1,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outlineVariant,
+                                  ),
+                                  Expanded(child: _buildLogSection(fill: true)),
+                                ],
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRollCenterHeader({
+    required bool showOptions,
+    required bool showDragHandle,
+    required VoidCallback onBack,
+    required VoidCallback onClose,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        if (showDragHandle) ...[
+          const SizedBox(height: 10),
+          Container(
+            width: 44,
+            height: 5,
+            decoration: BoxDecoration(
+              color: cs.outlineVariant,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          child: Row(
+            children: [
+              if (showOptions)
+                IconButton(
+                  tooltip: "返回检定中心",
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back),
+                )
+              else ...[
+                const SizedBox(width: 8),
+                Icon(Icons.casino_outlined, color: cs.primary),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: Text(
+                  showOptions ? "选择检定类型" : "检定中心",
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              IconButton(
+                tooltip: "关闭",
+                onPressed: onClose,
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRollOptionView({required ValueChanged<RollOption> onSelected}) {
+    return DefaultTabController(
+      length: 4,
+      child: Column(
+        children: [
+          const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(icon: Icon(Icons.fitness_center), text: "属性/豁免"),
+              Tab(icon: Icon(Icons.fact_check_outlined), text: "技能"),
+              Tab(icon: Icon(Icons.gps_fixed_outlined), text: "其它"),
+              Tab(icon: Icon(Icons.casino_outlined), text: "自由"),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                ListView(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  children: [
+                    _buildSectionHeader("属性检定"),
+                    _buildRollChoiceTile(
+                      "力量检定",
+                      RollType.attrCheck,
+                      "str",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "敏捷检定",
+                      RollType.attrCheck,
+                      "dex",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "体质检定",
+                      RollType.attrCheck,
+                      "con",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "智力检定",
+                      RollType.attrCheck,
+                      "int",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "感知检定",
+                      RollType.attrCheck,
+                      "wis",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "魅力检定",
+                      RollType.attrCheck,
+                      "cha",
+                      onSelected,
+                    ),
+                    const Divider(),
+                    _buildSectionHeader("豁免检定"),
+                    _buildRollChoiceTile(
+                      "力量豁免",
+                      RollType.save,
+                      "str",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "敏捷豁免",
+                      RollType.save,
+                      "dex",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "体质豁免",
+                      RollType.save,
+                      "con",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "智力豁免",
+                      RollType.save,
+                      "int",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "感知豁免",
+                      RollType.save,
+                      "wis",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "魅力豁免",
+                      RollType.save,
+                      "cha",
+                      onSelected,
+                    ),
+                  ],
+                ),
+                ListView(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  children: [
+                    _buildSectionHeader("全部技能"),
+                    for (final choice in _skillRollChoices)
+                      _buildRollChoiceTile(
+                        choice.$1,
+                        RollType.skill,
+                        choice.$2,
+                        onSelected,
+                      ),
+                  ],
+                ),
+                ListView(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  children: [
+                    _buildRollChoiceTile(
+                      "先攻检定",
+                      RollType.initiative,
+                      "",
+                      onSelected,
+                    ),
+                    _buildRollChoiceTile(
+                      "死亡豁免",
+                      RollType.deathSave,
+                      "",
+                      onSelected,
+                    ),
+                    const Divider(),
+                    _buildSectionHeader("武器命中检定"),
+                    if (_selectedChar != null)
+                      for (final weapon in _selectedChar!.weapons)
+                        ListTile(
+                          leading: const Icon(Icons.gps_fixed_outlined),
+                          title: Text(
+                            weapon.name.isEmpty ? "未命名武器" : weapon.name,
+                          ),
+                          subtitle: Text(weapon.damage),
+                          trailing: Text(
+                            weapon.attackBonus >= 0
+                                ? "+${weapon.attackBonus}"
+                                : "${weapon.attackBonus}",
+                          ),
+                          onTap: () => onSelected(
+                            RollOption(
+                              name: "命中检定: ${weapon.name}",
+                              type: RollType.weapon,
+                              manualBonus: weapon.attackBonus,
+                            ),
+                          ),
+                        ),
+                  ],
+                ),
+                Center(
+                  child: FilledButton.icon(
+                    onPressed: () => onSelected(RollOption.free()),
+                    icon: const Icon(Icons.casino_outlined),
+                    label: const Text("选择自由检定"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const _skillRollChoices = <(String, String)>[
+    ("运动 (Athletics)", "athletics"),
+    ("体操 (Acrobatics)", "acrobatics"),
+    ("巧手 (Sleight of Hand)", "sleightOfHand"),
+    ("隐匿 (Stealth)", "stealth"),
+    ("奥秘 (Arcana)", "arcana"),
+    ("历史 (History)", "history"),
+    ("调查 (Investigation)", "investigation"),
+    ("自然 (Nature)", "nature"),
+    ("宗教 (Religion)", "religion"),
+    ("驯兽 (Animal Handling)", "animalHandling"),
+    ("洞悉 (Insight)", "insight"),
+    ("医药 (Medicine)", "medicine"),
+    ("察觉 (Perception)", "perception"),
+    ("求生 (Survival)", "survival"),
+    ("欺瞒 (Deception)", "deception"),
+    ("威吓 (Intimidation)", "intimidation"),
+    ("表演 (Performance)", "performance"),
+    ("游说 (Persuasion)", "persuasion"),
+  ];
+
+  Widget _buildRollChoiceTile(
+    String title,
+    RollType type,
+    String key,
+    ValueChanged<RollOption> onSelected,
+  ) {
+    final selected =
+        _currentOption.name == title &&
+        _currentOption.type == type &&
+        _currentOption.key == key;
+    final cs = Theme.of(context).colorScheme;
+    final icon = switch (type) {
+      RollType.attrCheck => Icons.fitness_center,
+      RollType.save => Icons.shield_outlined,
+      RollType.skill => Icons.fact_check_outlined,
+      RollType.initiative => Icons.bolt_outlined,
+      RollType.deathSave => Icons.heart_broken_outlined,
+      RollType.weapon => Icons.gps_fixed_outlined,
+      RollType.free => Icons.casino_outlined,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ListTile(
+        leading: Icon(icon, color: selected ? cs.primary : cs.onSurfaceVariant),
+        title: Text(title),
+        selected: selected,
+        selectedTileColor: cs.primaryContainer.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        trailing: selected ? Icon(Icons.check_circle, color: cs.primary) : null,
+        onTap: () => onSelected(RollOption(name: title, type: type, key: key)),
+      ),
     );
   }
 
@@ -801,7 +1226,7 @@ class _AdventurePageState extends State<AdventurePage>
               color: (c.hitPointsCurrent < c.hitPointsMax / 4)
                   ? cs.error
                   : AppTheme.success,
-              suffixText: "/ ${c.hitPointsMax}", // 显示在数字后面的最大值
+              maxText: "${c.hitPointsMax}",
               compact: compact,
               onChanged: (val) {
                 setState(() => c.hitPointsCurrent = val);
@@ -841,14 +1266,14 @@ class _AdventurePageState extends State<AdventurePage>
     required int value,
     required Color color,
     required ValueChanged<int> onChanged,
-    String? suffixText,
+    String? maxText,
     bool compact = false,
   }) {
     return _HpStepperRow(
       label: label,
       value: value,
       color: color,
-      suffixText: suffixText,
+      maxText: maxText,
       compact: compact,
       onChanged: onChanged,
     );
@@ -913,7 +1338,10 @@ class _AdventurePageState extends State<AdventurePage>
   }
 
   // --- 骰子控制面板 ---
-  Widget _buildRollControlPanel({bool isDesktop = false}) {
+  Widget _buildRollControlPanel({
+    bool isDesktop = false,
+    required VoidCallback onChooseOption,
+  }) {
     final baseBonus = _currentBaseBonus;
     final cs = Theme.of(context).colorScheme;
     final dieLabel = "D${_currentOption.isLockedD20 ? 20 : _dieSize}";
@@ -1018,7 +1446,8 @@ class _AdventurePageState extends State<AdventurePage>
                   bonusStepButton(
                     icon: Icons.remove,
                     tooltip: "减少额外加值",
-                    onPressed: () => setState(() => _extraBonus--),
+                    onPressed: () =>
+                        _updateRollCenterState(() => _extraBonus--),
                   ),
                   Expanded(
                     child: Text(
@@ -1034,7 +1463,8 @@ class _AdventurePageState extends State<AdventurePage>
                   bonusStepButton(
                     icon: Icons.add,
                     tooltip: "增加额外加值",
-                    onPressed: () => setState(() => _extraBonus++),
+                    onPressed: () =>
+                        _updateRollCenterState(() => _extraBonus++),
                   ),
                 ],
               ),
@@ -1068,7 +1498,7 @@ class _AdventurePageState extends State<AdventurePage>
           ),
           SizedBox(height: compact ? 10 : 14),
           InkWell(
-            onTap: _showRollOptionSheet,
+            onTap: onChooseOption,
             borderRadius: BorderRadius.circular(compact ? 16 : 18),
             child: Container(
               padding: EdgeInsets.all(compact ? 10 : 14),
@@ -1155,7 +1585,7 @@ class _AdventurePageState extends State<AdventurePage>
             ],
             selected: {_advantage},
             onSelectionChanged: (Set<_AdvantageState> newSelection) {
-              setState(() => _advantage = newSelection.first);
+              _updateRollCenterState(() => _advantage = newSelection.first);
             },
           ),
           SizedBox(height: compact ? 10 : 12),
@@ -1180,7 +1610,7 @@ class _AdventurePageState extends State<AdventurePage>
                   ),
                   onChanged: _currentOption.isLockedD20
                       ? null
-                      : (v) => setState(() => _dieSize = v!),
+                      : (v) => _updateRollCenterState(() => _dieSize = v!),
                   items: [4, 6, 8, 10, 12, 20, 100]
                       .map(
                         (e) => DropdownMenuItem(value: e, child: Text("D$e")),
@@ -1206,7 +1636,8 @@ class _AdventurePageState extends State<AdventurePage>
                           )
                         : null,
                   ),
-                  onChanged: (v) => setState(() => _rollCount = v!),
+                  onChanged: (v) =>
+                      _updateRollCenterState(() => _rollCount = v!),
                   items: [1, 2, 3, 4, 5, 10]
                       .map(
                         (e) => DropdownMenuItem(value: e, child: Text("$e 次")),
@@ -1243,6 +1674,7 @@ class _AdventurePageState extends State<AdventurePage>
     final actualDie = _currentOption.isLockedD20 ? 20 : _dieSize;
     final base = _currentBaseBonus;
     final totalMod = base + _extraBonus;
+    final newLogs = <RollLog>[];
 
     for (int i = 0; i < _rollCount; i++) {
       int r1 = random.nextInt(actualDie) + 1;
@@ -1270,244 +1702,10 @@ class _AdventurePageState extends State<AdventurePage>
         isFail: (actualDie == 20 && finalRollVal == 1),
       );
 
-      setState(() {
-        _logs.insert(0, log);
-      });
+      newLogs.add(log);
     }
-  }
 
-  // --- 检定选择浮层 ---
-  void _showRollOptionSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) {
-          return DefaultTabController(
-            length: 4,
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.rule_outlined,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "选择检定类型",
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: "关闭",
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                const TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  tabs: [
-                    Tab(icon: Icon(Icons.fitness_center), text: "属性/豁免"),
-                    Tab(icon: Icon(Icons.fact_check_outlined), text: "技能"),
-                    Tab(icon: Icon(Icons.gps_fixed_outlined), text: "其它"),
-                    Tab(icon: Icon(Icons.casino_outlined), text: "自由"),
-                  ],
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      // 属性/豁免
-                      ListView(
-                        controller: scrollController,
-                        children: [
-                          _buildSectionHeader("属性检定"),
-                          // 映射中文名
-                          _buildOptionTile("力量检定", RollType.attrCheck, "str"),
-                          _buildOptionTile("敏捷检定", RollType.attrCheck, "dex"),
-                          _buildOptionTile("体质检定", RollType.attrCheck, "con"),
-                          _buildOptionTile("智力检定", RollType.attrCheck, "int"),
-                          _buildOptionTile("感知检定", RollType.attrCheck, "wis"),
-                          _buildOptionTile("魅力检定", RollType.attrCheck, "cha"),
-                          const Divider(),
-                          _buildSectionHeader("豁免检定"),
-                          _buildOptionTile("力量豁免", RollType.save, "str"),
-                          _buildOptionTile("敏捷豁免", RollType.save, "dex"),
-                          _buildOptionTile("体质豁免", RollType.save, "con"),
-                          _buildOptionTile("智力豁免", RollType.save, "int"),
-                          _buildOptionTile("感知豁免", RollType.save, "wis"),
-                          _buildOptionTile("魅力豁免", RollType.save, "cha"),
-                        ],
-                      ),
-                      // 技能
-                      ListView(
-                        controller: scrollController,
-                        children: [
-                          _buildSectionHeader("全部技能"),
-                          _buildOptionTile(
-                            "运动 (Athletics)",
-                            RollType.skill,
-                            "athletics",
-                          ),
-                          _buildOptionTile(
-                            "体操 (Acrobatics)",
-                            RollType.skill,
-                            "acrobatics",
-                          ),
-                          _buildOptionTile(
-                            "巧手 (Sleight of Hand)",
-                            RollType.skill,
-                            "sleightOfHand",
-                          ),
-                          _buildOptionTile(
-                            "隐匿 (Stealth)",
-                            RollType.skill,
-                            "stealth",
-                          ),
-                          _buildOptionTile(
-                            "奥秘 (Arcana)",
-                            RollType.skill,
-                            "arcana",
-                          ),
-                          _buildOptionTile(
-                            "历史 (History)",
-                            RollType.skill,
-                            "history",
-                          ),
-                          _buildOptionTile(
-                            "调查 (Investigation)",
-                            RollType.skill,
-                            "investigation",
-                          ),
-                          _buildOptionTile(
-                            "自然 (Nature)",
-                            RollType.skill,
-                            "nature",
-                          ),
-                          _buildOptionTile(
-                            "宗教 (Religion)",
-                            RollType.skill,
-                            "religion",
-                          ),
-                          _buildOptionTile(
-                            "驯兽 (Animal Handling)",
-                            RollType.skill,
-                            "animalHandling",
-                          ),
-                          _buildOptionTile(
-                            "洞悉 (Insight)",
-                            RollType.skill,
-                            "insight",
-                          ),
-                          _buildOptionTile(
-                            "医药 (Medicine)",
-                            RollType.skill,
-                            "medicine",
-                          ),
-                          _buildOptionTile(
-                            "察觉 (Perception)",
-                            RollType.skill,
-                            "perception",
-                          ),
-                          _buildOptionTile(
-                            "求生 (Survival)",
-                            RollType.skill,
-                            "survival",
-                          ),
-                          _buildOptionTile(
-                            "欺瞒 (Deception)",
-                            RollType.skill,
-                            "deception",
-                          ),
-                          _buildOptionTile(
-                            "威吓 (Intimidation)",
-                            RollType.skill,
-                            "intimidation",
-                          ),
-                          _buildOptionTile(
-                            "表演 (Performance)",
-                            RollType.skill,
-                            "performance",
-                          ),
-                          _buildOptionTile(
-                            "游说 (Persuasion)",
-                            RollType.skill,
-                            "persuasion",
-                          ),
-                        ],
-                      ),
-                      // 其它
-                      ListView(
-                        controller: scrollController,
-                        children: [
-                          _buildOptionTile("先攻检定", RollType.initiative, ""),
-                          _buildOptionTile("死亡豁免", RollType.deathSave, ""),
-                          const Divider(),
-                          _buildSectionHeader("武器命中检定"),
-                          if (_selectedChar != null)
-                            ..._selectedChar!.weapons.map(
-                              (w) => ListTile(
-                                title: Text(w.name.isEmpty ? "未命名武器" : w.name),
-                                subtitle: Text(w.damage),
-                                trailing: Text(
-                                  w.attackBonus >= 0
-                                      ? "+${w.attackBonus}"
-                                      : "${w.attackBonus}",
-                                ),
-                                onTap: () {
-                                  setState(() {
-                                    _currentOption = RollOption(
-                                      name: "命中检定: ${w.name}",
-                                      type: RollType.weapon,
-                                      manualBonus: w.attackBonus,
-                                    );
-                                  });
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ),
-                        ],
-                      ),
-                      // 自由
-                      Center(
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            setState(() => _currentOption = RollOption.free());
-                            Navigator.pop(context);
-                          },
-                          icon: const Icon(Icons.casino_outlined),
-                          label: const Text("选择自由检定"),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    _updateRollCenterState(() => _logs.insertAll(0, newLogs));
   }
 
   void _showCurrencyBottomSheet() {
@@ -1639,37 +1837,6 @@ class _AdventurePageState extends State<AdventurePage>
     );
   }
 
-  Widget _buildOptionTile(String title, RollType type, String key) {
-    final selected =
-        _currentOption.name == title &&
-        _currentOption.type == type &&
-        _currentOption.key == key;
-    final cs = Theme.of(context).colorScheme;
-    final icon = switch (type) {
-      RollType.attrCheck => Icons.fitness_center,
-      RollType.save => Icons.shield_outlined,
-      RollType.skill => Icons.fact_check_outlined,
-      RollType.initiative => Icons.bolt_outlined,
-      RollType.deathSave => Icons.heart_broken_outlined,
-      RollType.weapon => Icons.gps_fixed_outlined,
-      RollType.free => Icons.casino_outlined,
-    };
-    return ListTile(
-      leading: Icon(icon, color: selected ? cs.primary : cs.onSurfaceVariant),
-      title: Text(title),
-      selected: selected,
-      selectedTileColor: cs.primaryContainer.withValues(alpha: 0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      trailing: selected ? Icon(Icons.check_circle, color: cs.primary) : null,
-      onTap: () {
-        setState(() {
-          _currentOption = RollOption(name: title, type: type, key: key);
-        });
-        Navigator.pop(context);
-      },
-    );
-  }
-
   Widget _buildLogItem(RollLog log) {
     final cs = Theme.of(context).colorScheme;
     Color accent = cs.primary;
@@ -1750,15 +1917,8 @@ class _AdventurePageState extends State<AdventurePage>
             Row(
               children: [
                 Expanded(
-                  child: Container(
+                  child: SizedBox(
                     height: compact ? 36 : 40,
-                    padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cs.surface,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: cs.outlineVariant),
-                    ),
                     child: TextFormField(
                       initialValue: currentStr,
                       textAlign: TextAlign.center,
@@ -1767,23 +1927,50 @@ class _AdventurePageState extends State<AdventurePage>
                         fontSize: compact ? 18 : 20,
                         fontWeight: FontWeight.w900,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        border: InputBorder.none,
-                        filled: false,
+                        filled: true,
+                        fillColor: cs.surface,
                         contentPadding: EdgeInsets.zero,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide(color: cs.outlineVariant),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide(color: cs.outlineVariant),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide(color: cs.primary, width: 1.5),
+                        ),
                       ),
                       onChanged: (v) => onChangedStr?.call(v),
                     ),
                   ),
                 ),
                 if (maxStr != null) ...[
-                  SizedBox(width: compact ? 6 : 8),
-                  Text(
-                    "/ $maxStr",
-                    style: TextStyle(
-                      fontSize: compact ? 12 : 14,
-                      color: cs.onSurfaceVariant,
+                  SizedBox(
+                    width: compact ? 24 : 30,
+                    child: Center(
+                      child: Text(
+                        "/",
+                        style: TextStyle(
+                          fontSize: compact ? 12 : 14,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        maxStr,
+                        style: TextStyle(
+                          fontSize: compact ? 12 : 14,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1801,7 +1988,7 @@ class _HpStepperRow extends StatefulWidget {
   final int value;
   final Color color;
   final ValueChanged<int> onChanged;
-  final String? suffixText;
+  final String? maxText;
   final bool compact;
 
   const _HpStepperRow({
@@ -1809,7 +1996,7 @@ class _HpStepperRow extends StatefulWidget {
     required this.value,
     required this.color,
     required this.onChanged,
-    this.suffixText,
+    this.maxText,
     this.compact = false,
   });
 
@@ -1891,47 +2078,67 @@ class _HpStepperRowState extends State<_HpStepperRow> {
           onPressed: () => widget.onChanged(widget.value - 1),
         ),
         Expanded(
-          child: Container(
-            height: fieldHeight,
-            margin: EdgeInsets.symmetric(horizontal: widget.compact ? 5 : 8),
-            padding: EdgeInsets.symmetric(horizontal: widget.compact ? 8 : 10),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: cs.outlineVariant),
-            ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: widget.compact ? 5 : 8),
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    textAlignVertical: TextAlignVertical.center,
-                    style: TextStyle(
-                      fontSize: widget.compact ? 17 : 20,
-                      fontWeight: FontWeight.bold,
-                      color: widget.color,
+                  child: SizedBox(
+                    height: fieldHeight,
+                    child: TextField(
+                      controller: _controller,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      textAlignVertical: TextAlignVertical.center,
+                      style: TextStyle(
+                        fontSize: widget.compact ? 17 : 20,
+                        fontWeight: FontWeight.bold,
+                        color: widget.color,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: cs.surface,
+                        contentPadding: EdgeInsets.zero,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide(color: cs.outlineVariant),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide(color: cs.outlineVariant),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide(color: cs.primary, width: 1.5),
+                        ),
+                      ),
+                      onChanged: _handleTextChanged,
                     ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      filled: false,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: _handleTextChanged,
                   ),
                 ),
-                if (widget.suffixText != null) ...[
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      widget.suffixText!,
-                      style: TextStyle(
-                        fontSize: widget.compact ? 13 : 16,
-                        color: cs.onSurfaceVariant,
+                if (widget.maxText != null) ...[
+                  SizedBox(
+                    width: widget.compact ? 24 : 30,
+                    child: Center(
+                      child: Text(
+                        "/",
+                        style: TextStyle(
+                          fontSize: widget.compact ? 13 : 16,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        widget.maxText!,
+                        style: TextStyle(
+                          fontSize: widget.compact ? 13 : 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   ),
                 ],
