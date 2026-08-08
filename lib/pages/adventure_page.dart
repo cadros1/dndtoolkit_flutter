@@ -85,14 +85,16 @@ class _AdventurePageState extends State<AdventurePage>
   @override
   Widget build(BuildContext context) {
     if (_characters.isEmpty) {
-      return const AppEmptyState(
-        icon: Icons.person_add_alt_1_outlined,
-        title: "请先创建角色",
-        message: "冒险操作台需要读取角色卡，创建角色后即可进行快捷检定和状态管理。",
+      return const SafeArea(
+        child: AppEmptyState(
+          icon: Icons.person_add_alt_1_outlined,
+          title: "请先创建角色",
+          message: "创建角色后即可进行快捷检定和状态管理。",
+        ),
       );
     }
     if (_selectedChar == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const SafeArea(child: Center(child: CircularProgressIndicator()));
     }
 
     return LayoutBuilder(
@@ -120,7 +122,6 @@ class _AdventurePageState extends State<AdventurePage>
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: false,
       body: SafeArea(
-        top: isDesktop,
         child: ListView(
           padding: EdgeInsets.only(bottom: isDesktop ? 32 : 24),
           children: [
@@ -1250,7 +1251,7 @@ class _AdventurePageState extends State<AdventurePage>
             // 3. 生命条
             _buildHpBar(
               c.hitPointsCurrent,
-              c.hitPointsMax + c.hitPointsTemp,
+              c.hitPointsMax,
               c.hitPointsTemp,
               height: compact ? 8 : 12,
             ),
@@ -1593,6 +1594,9 @@ class _AdventurePageState extends State<AdventurePage>
             children: [
               Expanded(
                 child: DropdownButtonFormField<int>(
+                  key: ValueKey(
+                    "die-${_currentOption.type}-${_currentOption.isLockedD20 ? 20 : _dieSize}",
+                  ),
                   initialValue: _currentOption.isLockedD20 ? 20 : _dieSize,
                   decoration: InputDecoration(
                     isDense: compact,
@@ -1621,6 +1625,7 @@ class _AdventurePageState extends State<AdventurePage>
               SizedBox(width: compact ? 8 : 12),
               Expanded(
                 child: DropdownButtonFormField<int>(
+                  key: ValueKey("roll-count-$_rollCount"),
                   initialValue: _rollCount,
                   decoration: InputDecoration(
                     isDense: compact,
@@ -1920,7 +1925,12 @@ class _AdventurePageState extends State<AdventurePage>
                   child: SizedBox(
                     height: compact ? 36 : 40,
                     child: TextFormField(
+                      key: ValueKey(
+                        "hit-dice-${_selectedChar!.id}-$currentStr",
+                      ),
                       initialValue: currentStr,
+                      expands: true,
+                      maxLines: null,
                       textAlign: TextAlign.center,
                       textAlignVertical: TextAlignVertical.center,
                       style: TextStyle(
@@ -2088,6 +2098,8 @@ class _HpStepperRowState extends State<_HpStepperRow> {
                     child: TextField(
                       controller: _controller,
                       keyboardType: TextInputType.number,
+                      expands: true,
+                      maxLines: null,
                       textAlign: TextAlign.center,
                       textAlignVertical: TextAlignVertical.center,
                       style: TextStyle(
