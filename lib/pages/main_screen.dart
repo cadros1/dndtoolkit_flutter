@@ -16,19 +16,9 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   static const _pages = [
-    _MainDestination(
-      '角色管理',
-      '角色卡、PDF 导入与导出',
-      Icons.groups_2_outlined,
-      Icons.groups_2,
-    ),
-    _MainDestination(
-      '冒险操作台',
-      '快捷检定、状态与日志',
-      Icons.explore_outlined,
-      Icons.explore,
-    ),
-    _MainDestination('更多', '同步、设置与关于', Icons.more_horiz, Icons.more_horiz),
+    _MainDestination(Icons.groups_2_outlined, Icons.groups_2),
+    _MainDestination(Icons.explore_outlined, Icons.explore),
+    _MainDestination(Icons.more_horiz, Icons.more_horiz),
   ];
 
   void _onItemTapped(int index) {
@@ -59,24 +49,9 @@ class _MainScreenState extends State<MainScreen> {
     ),
   ];
 
-  // ---- 移动端布局：AppBar + BottomNavigationBar ----
+  // ---- 移动端布局：页面内容 + 底部导航 ----
   Widget _buildMobileLayout() {
-    final page = _pages[_selectedIndex];
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(page.title),
-            Text(
-              page.subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
       body: _buildPage(_selectedIndex),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -198,17 +173,10 @@ class _MainScreenState extends State<MainScreen> {
 }
 
 class _MainDestination {
-  final String title;
-  final String subtitle;
   final IconData icon;
   final IconData selectedIcon;
 
-  const _MainDestination(
-    this.title,
-    this.subtitle,
-    this.icon,
-    this.selectedIcon,
-  );
+  const _MainDestination(this.icon, this.selectedIcon);
 }
 
 /// 页面切换：不使用 IndexedStack，直接切换 Widget

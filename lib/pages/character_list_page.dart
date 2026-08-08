@@ -192,25 +192,28 @@ class _CharacterListPageState extends State<CharacterListPage> {
     );
   }
 
-  Widget _buildHeader(bool isDesktop) {
-    return AppPageHeader(
-      icon: Icons.groups_2_outlined,
-      title: '角色管理',
-      subtitle: _characters.isEmpty
-          ? '创建角色卡，或从 PDF 导入已有角色。'
-          : '共 ${_characters.length} 名角色。点击卡片进入编辑。',
-      actions: [
+  Widget _buildDesktopToolbar() {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _characters.isEmpty ? '暂无角色' : '共 ${_characters.length} 名角色',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
         OutlinedButton.icon(
           icon: const Icon(Icons.file_upload_outlined),
           label: const Text('从 PDF 导入'),
           onPressed: _importCharacter,
         ),
-        if (isDesktop)
-          FilledButton.icon(
-            icon: const Icon(Icons.add),
-            label: const Text('新建角色'),
-            onPressed: () => _navigateToEditPage(),
-          ),
+        const SizedBox(width: 10),
+        FilledButton.icon(
+          icon: const Icon(Icons.add),
+          label: const Text('新建角色'),
+          onPressed: () => _navigateToEditPage(),
+        ),
       ],
     );
   }
@@ -426,7 +429,7 @@ class _CharacterListPageState extends State<CharacterListPage> {
             isDesktop ? 24 : 16,
             isDesktop ? 16 : 12,
           ),
-          child: isDesktop ? _buildHeader(isDesktop) : _buildMobileImportBar(),
+          child: isDesktop ? _buildDesktopToolbar() : _buildMobileImportBar(),
         ),
         Expanded(child: isDesktop ? _buildDesktopGrid() : _buildMobileList()),
       ],
@@ -440,7 +443,7 @@ class _CharacterListPageState extends State<CharacterListPage> {
         final isDesktop = constraints.maxWidth >= kAppDesktopBreakpoint;
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: SafeArea(top: isDesktop, child: _buildContent(isDesktop)),
+          body: SafeArea(child: _buildContent(isDesktop)),
           floatingActionButton: isDesktop
               ? null
               : FloatingActionButton.extended(

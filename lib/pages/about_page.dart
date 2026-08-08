@@ -170,8 +170,7 @@ class _AboutPageState extends State<AboutPage> {
           AppPanel(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
             child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 360;
+              builder: (context, _) {
                 final info = Row(
                   children: [
                     Container(
@@ -224,27 +223,7 @@ class _AboutPageState extends State<AboutPage> {
                   ],
                 );
 
-                final updateChip = UpdateService.instance.hasNewVersion
-                    ? const Chip(
-                        avatar: Icon(Icons.system_update_alt, size: 18),
-                        label: Text("可更新"),
-                      )
-                    : null;
-
-                if (updateChip == null) return info;
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [info, const SizedBox(height: 12), updateChip],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(child: info),
-                    const SizedBox(width: 12),
-                    updateChip,
-                  ],
-                );
+                return info;
               },
             ),
           ),
