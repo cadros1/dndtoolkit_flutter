@@ -101,12 +101,12 @@ class CloudSyncService {
   }
 
   /// 重置客户端（Token 变更时调用）
-  Future<void> resetClient() async {
+  Future<void> resetClient() {
     _client?.dispose();
     _client = null;
     _currentToken = null;
     // 下次访问 client getter 时会用新 token 重建
-    await client;
+    return Future<void>.value();
   }
 
   /// 上传前去除 JSON 中的 base64 图片内容（减小体积，暂不考虑图片同步）

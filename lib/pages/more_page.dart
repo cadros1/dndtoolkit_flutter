@@ -92,7 +92,7 @@ class MorePage extends StatelessWidget {
               AppSettingsTile(
                 icon: Icons.settings_outlined,
                 title: "设置",
-                subtitle: "管理身份令牌和云端访问凭据",
+                subtitle: "管理应用偏好和数据设置",
                 onTap: () {
                   Navigator.push(
                     context,
