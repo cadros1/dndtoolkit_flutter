@@ -1289,13 +1289,14 @@ class _AdventurePageState extends State<AdventurePage>
     int safeCurrent = max(0, current);
     int safeTemp = max(0, temp);
 
-    // 计算总容量：MaxHP 和 (Current + Temp) 中较大的那个
-    // 这样当有大量临时生命时，条子会变长，或者以最大值为基准
-    int totalCapacity = max(maxHP, safeCurrent + safeTemp);
+    // 临时生命值始终作为普通生命容量之外的额外区段。
+    // 当前生命值高于最大值时扩展普通生命容量，避免出现负数空白区段。
+    final int regularCapacity = max(maxHP, safeCurrent);
+    int totalCapacity = regularCapacity + safeTemp;
     if (totalCapacity == 0) totalCapacity = 1;
 
-    // 计算空白部分的 flex 值
-    int emptySpace = totalCapacity - safeCurrent - safeTemp;
+    // 空白只代表已经损失的普通生命值，临时生命值不填补这段缺口。
+    int emptySpace = regularCapacity - safeCurrent;
     if (emptySpace < 0) emptySpace = 0;
 
     return ClipRRect(
