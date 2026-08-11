@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/app_ui.dart';
+import 'ai_service_configs_page.dart';
 import 'identity_token_page.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -23,6 +24,24 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.settings_outlined,
                     title: '设置',
                     subtitle: '管理应用偏好和数据相关设置。',
+                  ),
+                  const SizedBox(height: 18),
+                  const AppSectionTitle(
+                    title: 'AI 建卡',
+                    icon: Icons.auto_awesome,
+                  ),
+                  AppSettingsTile(
+                    icon: Icons.smart_toy_outlined,
+                    title: 'AI 服务配置',
+                    subtitle: '管理具名配置、模型、思考模式和 API Key',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (context) => AiServiceConfigsPage(),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 18),
                   const AppSectionTitle(

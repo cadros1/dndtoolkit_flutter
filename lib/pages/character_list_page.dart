@@ -9,6 +9,7 @@ import '../services/pdf_data_service.dart';
 import '../services/snack_bar_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_ui.dart';
+import 'ai_character_creation_page.dart';
 import 'character_edit_page.dart';
 
 class CharacterListPage extends StatefulWidget {
@@ -48,6 +49,56 @@ class _CharacterListPageState extends State<CharacterListPage> {
       ),
     );
     if (mounted) await _loadData();
+  }
+
+  Future<void> _navigateToAiCreation() async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => AiCharacterCreationPage()),
+    );
+    if (mounted) await _loadData();
+  }
+
+  Future<void> _showCreateOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '创建角色',
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  _navigateToEditPage();
+                },
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: const Text('新建空白卡'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  _navigateToAiCreation();
+                },
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('AI 建卡'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteCharacter(Character character) async {
@@ -207,6 +258,12 @@ class _CharacterListPageState extends State<CharacterListPage> {
           icon: const Icon(Icons.file_upload_outlined),
           label: const Text('从 PDF 导入'),
           onPressed: _importCharacter,
+        ),
+        const SizedBox(width: 10),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.auto_awesome),
+          label: const Text('AI 建卡'),
+          onPressed: _navigateToAiCreation,
         ),
         const SizedBox(width: 10),
         FilledButton.icon(
@@ -382,12 +439,27 @@ class _CharacterListPageState extends State<CharacterListPage> {
         onPressed: () => _navigateToEditPage(),
       ),
       secondaryAction: showImportAction
-          ? TextButton.icon(
-              icon: const Icon(Icons.file_upload_outlined),
-              label: const Text('从 PDF 导入'),
-              onPressed: _importCharacter,
+          ? Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('AI 建卡'),
+                  onPressed: _navigateToAiCreation,
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.file_upload_outlined),
+                  label: const Text('从 PDF 导入'),
+                  onPressed: _importCharacter,
+                ),
+              ],
             )
-          : null,
+          : TextButton.icon(
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('AI 建卡'),
+              onPressed: _navigateToAiCreation,
+            ),
     );
   }
 
@@ -447,7 +519,7 @@ class _CharacterListPageState extends State<CharacterListPage> {
           floatingActionButton: isDesktop
               ? null
               : FloatingActionButton.extended(
-                  onPressed: () => _navigateToEditPage(),
+                  onPressed: _showCreateOptions,
                   icon: const Icon(Icons.add),
                   label: const Text('新建角色'),
                 ),
