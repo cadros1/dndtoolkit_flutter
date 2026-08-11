@@ -840,7 +840,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
                         const AppPageHeader(
                           icon: Icons.auto_awesome,
                           title: 'AI 建卡',
-                          subtitle: '描述角色方向，由AI生成 5E 2014 新卡草稿，再进入编辑器检查。',
+                          subtitle: '生成结果可能与规则冲突，请务必对照规则复核并与你的 DM 沟通',
                         ),
                         const SizedBox(height: 16),
                         _configSection(),
