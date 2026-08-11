@@ -883,7 +883,7 @@ class _GuidanceFieldEditor extends StatelessWidget {
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
           title: const Text('由AI决定'),
-          subtitle: Text(aiDecides ? '填写你的想法，若留空则完全由AI决定' : 'AI将严格遵循你填写的内容'),
+          subtitle: Text(aiDecides ? '填写你的想法，若留空则完全由AI决定' : '这些内容将由你填写'),
           value: aiDecides,
           onChanged: enabled
               ? (value) => onAiDecidesChanged(value ?? false)
@@ -953,7 +953,7 @@ class _RoleplayGroupEditor extends StatelessWidget {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('由AI决定'),
-          subtitle: Text(aiDecides ? '填写你的想法，若留空则完全由AI决定' : 'AI将严格遵循你填写的内容'),
+          subtitle: Text(aiDecides ? '填写你的想法，若留空则完全由AI决定' : '这些内容将由你填写'),
           value: aiDecides,
           onChanged: enabled ? onAiDecidesChanged : null,
         ),
