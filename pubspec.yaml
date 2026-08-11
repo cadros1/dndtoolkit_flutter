@@ -48,6 +48,8 @@ dependencies:
   supabase: ^2.0.0
   # 本地偏好存储 (身份令牌)
   shared_preferences: ^2.2.0
+  # AI 服务 API Key 使用系统安全存储，配置元数据仍由 SharedPreferences 保存
+  flutter_secure_storage: ^10.3.1
   # 日期格式化
   intl: ^0.19.0
   # 图标
