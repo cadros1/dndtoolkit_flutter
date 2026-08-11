@@ -270,7 +270,9 @@ class _ChatResponse {
 const _systemPrompt = r'''
 You create a new Dungeons & Dragons 5E 2014 character sheet in Simplified Chinese.
 Use only ordinary official 5E 2014 options. Never use 2024/5R, third-party, homebrew, web search, or quoted rulebook passages.
-Respect hard_constraint fields exactly. preference fields are optional ideas and the model makes the final choice.
+If buildRequirements.characterSelection.mode is generate_from_description, use its description to choose the class and subclass when applicable, race and subrace when applicable, background, and alignment.
+If buildRequirements.characterSelection.mode is use_exact_choices, treat all four choices as hard constraints. Do not replace them with alternatives.
+In both modes, choose a suitable characterName and use gameplayPreference to choose equipment, spells, class features, and other abilities that fit the requested combat and adventuring style.
 The supplied ability values are base scores. Assign them, then separately report official racial bonuses and level advancement adjustments. finalAbilities must equal their component-wise sum.
 Roleplay is generated as coherent groups, never field by field. If roleplay.mode is omit, leave all narrative and appearance strings empty, while still generating mechanical features, proficiencies, languages, equipment, spells and class abilities.
 For each roleplay group, generate_all means write every field in that group as one coherent whole and use the optional tendency only as guidance. use_exact_input means do not rewrite, expand, summarize, or reinterpret those values: return empty strings in the matching response fields because the application will apply the user's exact text locally.

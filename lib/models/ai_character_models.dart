@@ -11,20 +11,83 @@ const abilityKeys = <String>[
   'charisma',
 ];
 
-class AiGuidanceField {
-  const AiGuidanceField({required this.text, required this.aiDecides});
+enum AiBuildRequirementMode { fromDescription, exactChoices }
 
-  final String text;
-  final bool aiDecides;
+class AiBuildRequirements {
+  const AiBuildRequirements.fromDescription({
+    required this.characterDescription,
+    required this.gameplayPreference,
+  }) : mode = AiBuildRequirementMode.fromDescription,
+       classAndSubclass = '',
+       raceAndSubrace = '',
+       background = '',
+       alignment = '';
 
-  String? validate(String label) {
-    if (!aiDecides && text.trim().isEmpty) return '请填写$label，或勾选“由 AI 决定”';
-    return null;
+  const AiBuildRequirements.exactChoices({
+    required this.classAndSubclass,
+    required this.raceAndSubrace,
+    required this.background,
+    required this.alignment,
+    required this.gameplayPreference,
+  }) : mode = AiBuildRequirementMode.exactChoices,
+       characterDescription = '';
+
+  final AiBuildRequirementMode mode;
+  final String characterDescription;
+  final String classAndSubclass;
+  final String raceAndSubrace;
+  final String background;
+  final String alignment;
+  final String gameplayPreference;
+
+  List<String> validate() {
+    final errors = <String>[];
+    if (gameplayPreference.trim().isEmpty) errors.add('请填写玩法偏好');
+    switch (mode) {
+      case AiBuildRequirementMode.fromDescription:
+        if (characterDescription.trim().isEmpty) errors.add('请填写角色描述');
+        break;
+      case AiBuildRequirementMode.exactChoices:
+        if (classAndSubclass.trim().isEmpty) errors.add('请填写职业');
+        if (raceAndSubrace.trim().isEmpty) errors.add('请填写种族');
+        if (background.trim().isEmpty) errors.add('请填写背景');
+        if (alignment.trim().isEmpty) errors.add('请填写阵营');
+        break;
+    }
+    return errors;
   }
 
   Map<String, dynamic> toJson() => {
-    'mode': aiDecides ? 'preference' : 'hard_constraint',
-    'text': text.trim(),
+    'characterSelection': switch (mode) {
+      AiBuildRequirementMode.fromDescription => {
+        'mode': 'generate_from_description',
+        'description': characterDescription.trim(),
+        'choose': const [
+          'classAndSubclass',
+          'raceAndSubrace',
+          'background',
+          'alignment',
+        ],
+      },
+      AiBuildRequirementMode.exactChoices => {
+        'mode': 'use_exact_choices',
+        'choices': {
+          'classAndSubclass': classAndSubclass.trim(),
+          'raceAndSubrace': raceAndSubrace.trim(),
+          'background': background.trim(),
+          'alignment': alignment.trim(),
+        },
+      },
+    },
+    'gameplayPreference': {
+      'text': gameplayPreference.trim(),
+      'applyTo': const [
+        'equipment',
+        'spells',
+        'classFeatures',
+        'otherAbilities',
+      ],
+    },
   };
 }
 
@@ -262,24 +325,21 @@ class AiCharacterBuildRequest {
   const AiCharacterBuildRequest({
     required this.configId,
     required this.totalLevel,
-    required this.guidance,
+    required this.requirements,
     required this.roleplay,
     required this.abilitySpec,
   });
 
   final String configId;
   final int totalLevel;
-  final Map<String, AiGuidanceField> guidance;
+  final AiBuildRequirements requirements;
   final AiRoleplayInput roleplay;
   final AiAbilitySpec abilitySpec;
 
   List<String> validate() {
     final errors = <String>[];
     if (totalLevel < 1 || totalLevel > 20) errors.add('角色总等级必须在 1–20 之间');
-    for (final entry in guidance.entries) {
-      final error = entry.value.validate(entry.key);
-      if (error != null) errors.add(error);
-    }
+    errors.addAll(requirements.validate());
     errors.addAll(roleplay.validate());
     final abilityError = abilitySpec.validate();
     if (abilityError != null) errors.add(abilityError);
@@ -289,7 +349,7 @@ class AiCharacterBuildRequest {
   Map<String, dynamic> toPromptJson() => {
     'ruleset': 'D&D 5E 2014 official content only',
     'totalLevel': totalLevel,
-    'guidance': guidance.map((key, value) => MapEntry(key, value.toJson())),
+    'buildRequirements': requirements.toJson(),
     'roleplay': roleplay.toJson(),
     'abilityGeneration': abilitySpec.toJson(),
   };

@@ -83,10 +83,19 @@ void main() {
           final payload = jsonDecode(request.body) as Map<String, dynamic>;
           final messages = payload['messages'] as List<dynamic>;
           final systemMessage = messages.first as Map<String, dynamic>;
+          final userMessage = messages[1] as Map<String, dynamic>;
           expect(
             systemMessage['content'],
             isNot(contains('characterExperience')),
           );
+          expect(
+            systemMessage['content'],
+            contains('generate_from_description'),
+          );
+          expect(systemMessage['content'], contains('gameplayPreference'));
+          expect(userMessage['content'], contains('buildRequirements'));
+          expect(userMessage['content'], contains('想扮演保护同伴的自然施法者'));
+          expect(userMessage['content'], isNot(contains('"guidance"')));
           return http.Response(
             jsonEncode({
               'choices': [
@@ -112,7 +121,10 @@ void main() {
       final request = AiCharacterBuildRequest(
         configId: config.id,
         totalLevel: 1,
-        guidance: const {},
+        requirements: const AiBuildRequirements.fromDescription(
+          characterDescription: '想扮演保护同伴的自然施法者',
+          gameplayPreference: '保持距离，优先支援和控制敌人',
+        ),
         roleplay: const AiRoleplayInput(
           omit: true,
           appearanceAiDecides: true,

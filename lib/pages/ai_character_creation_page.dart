@@ -34,19 +34,11 @@ class _FieldDefinition {
   final String hint;
 }
 
-const _coreFields = <_FieldDefinition>[
-  _FieldDefinition('characterName', '角色姓名', '填写确切姓名，或描述你期望的名字'),
-  _FieldDefinition('class', '职业', '填写职业及子职，或描述你期望的冒险和战斗风格'),
-  _FieldDefinition('race', '种族', '填写种族及亚种，或描述你期望的种族特性'),
-  _FieldDefinition('background', '背景', '填写背景，或描述你期望的背景风格'),
-  _FieldDefinition('alignment', '阵营', '填写阵营，或描述你期望的行为与道德倾向'),
-];
-
-const _referenceFields = <_FieldDefinition>[
-  _FieldDefinition('combatRole', '战斗定位', '填写你的想法；留空则由AI自由发挥'),
-  _FieldDefinition('magicAndFeatures', '法术/能力倾向', '填写你的想法；留空则由AI自由发挥'),
-  _FieldDefinition('equipment', '装备倾向', '填写你的想法；留空则由AI自由发挥'),
-  _FieldDefinition('other', '其它想法', '填写你的想法；留空则由AI自由发挥'),
+const _choiceFields = <_FieldDefinition>[
+  _FieldDefinition('classAndSubclass', '职业', ''),
+  _FieldDefinition('raceAndSubrace', '种族', ''),
+  _FieldDefinition('background', '背景', ''),
+  _FieldDefinition('alignment', '阵营', ''),
 ];
 
 const _appearanceFields = <_FieldDefinition>[
@@ -69,19 +61,16 @@ const _backgroundFields = <_FieldDefinition>[
   _FieldDefinition('alliesAndOrganizations', '盟友与组织', '与角色有关的盟友、敌人或组织'),
   _FieldDefinition('treasure', '所持物', '与背景故事相关联的事物，不是装备或援助物'),
   _FieldDefinition('additionalFeaturesAndTraits', '附加特征', '角色外观上的附加特征'),
-  _FieldDefinition(
-    'characterExperience',
-    '角色经历',
-    '角色在本次冒险前的经历，以及与本次冒险的关联',
-  ),
+  _FieldDefinition('characterExperience', '角色经历', '角色在本次冒险前的经历，以及与本次冒险的关联'),
   _FieldDefinition('characterBackstory', '背景故事', '角色一生中影响其人格塑造的重大事件'),
 ];
 
 class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   final _formKey = GlobalKey<FormState>();
-  late final Map<String, TextEditingController> _coreControllers;
+  late final Map<String, TextEditingController> _choiceControllers;
   late final Map<String, TextEditingController> _roleplayControllers;
-  late final Map<String, bool> _coreAiDecides;
+  final _characterDescriptionController = TextEditingController();
+  final _gameplayPreferenceController = TextEditingController();
   final _appearanceTendencyController = TextEditingController();
   final _narrativeTendencyController = TextEditingController();
   final _levelController = TextEditingController(text: '1');
@@ -92,6 +81,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   List<AiServiceConfig> _configs = const [];
   String? _selectedConfigId;
   AiAbilityMethod _abilityMethod = AiAbilityMethod.pointBuy;
+  bool _generateFromDescription = false;
   bool _omitRoleplay = false;
   bool _appearanceAiDecides = false;
   bool _narrativeAiDecides = false;
@@ -104,9 +94,8 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   @override
   void initState() {
     super.initState();
-    _coreControllers = {
-      for (final field in [..._coreFields, ..._referenceFields])
-        field.id: TextEditingController(),
+    _choiceControllers = {
+      for (final field in _choiceFields) field.id: TextEditingController(),
     };
     _roleplayControllers = {
       for (final field in [
@@ -116,7 +105,6 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
       ])
         field.id: TextEditingController(),
     };
-    _coreAiDecides = {for (final field in _coreFields) field.id: false};
     _providedControllers = List.generate(6, (_) => TextEditingController());
     _loadConfigs();
     WidgetsBinding.instance.addPostFrameCallback(
@@ -127,7 +115,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   @override
   void dispose() {
     for (final controller in [
-      ..._coreControllers.values,
+      ..._choiceControllers.values,
       ..._roleplayControllers.values,
     ]) {
       controller.dispose();
@@ -138,6 +126,8 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
     _levelController.dispose();
     _budgetController.dispose();
     _rollCountController.dispose();
+    _characterDescriptionController.dispose();
+    _gameplayPreferenceController.dispose();
     _appearanceTendencyController.dispose();
     _narrativeTendencyController.dispose();
     widget.service.cancelCurrentRequest();
@@ -294,18 +284,18 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
     return AiCharacterBuildRequest(
       configId: selectedId,
       totalLevel: level,
-      guidance: {
-        for (final field in _coreFields)
-          field.id: AiGuidanceField(
-            text: _coreControllers[field.id]!.text,
-            aiDecides: _coreAiDecides[field.id]!,
-          ),
-        for (final field in _referenceFields)
-          field.id: AiGuidanceField(
-            text: _coreControllers[field.id]!.text,
-            aiDecides: true,
-          ),
-      },
+      requirements: _generateFromDescription
+          ? AiBuildRequirements.fromDescription(
+              characterDescription: _characterDescriptionController.text,
+              gameplayPreference: _gameplayPreferenceController.text,
+            )
+          : AiBuildRequirements.exactChoices(
+              classAndSubclass: _choiceControllers['classAndSubclass']!.text,
+              raceAndSubrace: _choiceControllers['raceAndSubrace']!.text,
+              background: _choiceControllers['background']!.text,
+              alignment: _choiceControllers['alignment']!.text,
+              gameplayPreference: _gameplayPreferenceController.text,
+            ),
       roleplay: AiRoleplayInput(
         omit: _omitRoleplay,
         appearanceAiDecides: _appearanceAiDecides,
@@ -457,21 +447,16 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   Widget _basicSection() {
     return Column(
       children: [
-        const AppSectionTitle(
-          title: '建卡要求',
-          subtitle: '如果没有想好某一项如何填写，可以勾选“由 AI 决定”',
-          icon: Icons.tune_outlined,
-        ),
+        const AppSectionTitle(title: '建卡要求', icon: Icons.tune_outlined),
         AppPanel(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
                 controller: _levelController,
                 enabled: !_generating,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: '角色总等级 *',
-                ),
+                decoration: const InputDecoration(labelText: '角色总等级 *'),
                 validator: (value) {
                   final level = int.tryParse(value?.trim() ?? '');
                   return level == null || level < 1 || level > 20
@@ -479,26 +464,71 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
                       : null;
                 },
               ),
-              for (final field in _coreFields) ...[
-                const SizedBox(height: 16),
-                _GuidanceFieldEditor(
-                  definition: field,
-                  controller: _coreControllers[field.id]!,
-                  aiDecides: _coreAiDecides[field.id]!,
-                  enabled: !_generating,
-                  onAiDecidesChanged: (value) {
-                    setState(() => _coreAiDecides[field.id] = value);
-                  },
+              SwitchListTile(
+                key: const ValueKey('generate-from-description-switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('从你的想法生成'),
+                value: _generateFromDescription,
+                onChanged: _generating
+                    ? null
+                    : (value) {
+                        setState(() => _generateFromDescription = value);
+                      },
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                alignment: Alignment.topCenter,
+                child: _generateFromDescription
+                    ? TextFormField(
+                        key: const ValueKey('character-description-field'),
+                        controller: _characterDescriptionController,
+                        enabled: !_generating,
+                        minLines: 2,
+                        maxLines: 5,
+                        decoration: const InputDecoration(
+                          labelText: '角色描述 *',
+                          helperText: '描述你想要扮演一个什么样的角色',
+                        ),
+                        validator: _requiredField,
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (
+                            var index = 0;
+                            index < _choiceFields.length;
+                            index++
+                          ) ...[
+                            if (index > 0) const SizedBox(height: 16),
+                            TextFormField(
+                              key: ValueKey(
+                                '${_choiceFields[index].id}-choice-field',
+                              ),
+                              controller:
+                                  _choiceControllers[_choiceFields[index].id],
+                              enabled: !_generating,
+                              decoration: InputDecoration(
+                                labelText: '${_choiceFields[index].label} *',
+                              ),
+                              validator: _requiredField,
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const ValueKey('gameplay-preference-field'),
+                controller: _gameplayPreferenceController,
+                enabled: !_generating,
+                minLines: 2,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: '玩法偏好 *',
+                  helperText: '描述你在战斗中和冒险中的行为风格',
                 ),
-              ],
-              for (final field in _referenceFields) ...[
-                const SizedBox(height: 16),
-                _ReferenceFieldEditor(
-                  definition: field,
-                  controller: _coreControllers[field.id]!,
-                  enabled: !_generating,
-                ),
-              ],
+                validator: _requiredField,
+              ),
             ],
           ),
         ),
@@ -518,6 +548,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
             children: [
               const Text('无需添加'),
               Switch(
+                key: const ValueKey('omit-roleplay-switch'),
                 value: _omitRoleplay,
                 onChanged: _generating
                     ? null
@@ -841,84 +872,8 @@ String _friendlyError(Exception error) => switch (error) {
   _ => '操作失败，请重试',
 };
 
-class _GuidanceFieldEditor extends StatelessWidget {
-  const _GuidanceFieldEditor({
-    required this.definition,
-    required this.controller,
-    required this.aiDecides,
-    required this.enabled,
-    required this.onAiDecidesChanged,
-  });
-
-  final _FieldDefinition definition;
-  final TextEditingController controller;
-  final bool aiDecides;
-  final bool enabled;
-  final ValueChanged<bool> onAiDecidesChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextFormField(
-          key: ValueKey('${definition.id}-$aiDecides'),
-          controller: controller,
-          enabled: enabled,
-          minLines: 1,
-          maxLines: 2,
-          decoration: InputDecoration(
-            labelText: '${definition.label}${aiDecides ? '' : ' *'}',
-            helperText: definition.hint,
-          ),
-          validator: (value) {
-            if (!aiDecides && (value == null || value.trim().isEmpty)) {
-              return '请填写${definition.label}，或勾选“由AI决定”';
-            }
-            return null;
-          },
-        ),
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          controlAffinity: ListTileControlAffinity.leading,
-          title: const Text('由AI决定'),
-          subtitle: Text(aiDecides ? '填写你的想法，若留空则完全由AI决定' : '这些内容将由你填写'),
-          value: aiDecides,
-          onChanged: enabled
-              ? (value) => onAiDecidesChanged(value ?? false)
-              : null,
-        ),
-      ],
-    );
-  }
-}
-
-class _ReferenceFieldEditor extends StatelessWidget {
-  const _ReferenceFieldEditor({
-    required this.definition,
-    required this.controller,
-    required this.enabled,
-  });
-
-  final _FieldDefinition definition;
-  final TextEditingController controller;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      enabled: enabled,
-      minLines: 1,
-      maxLines: 3,
-      decoration: InputDecoration(
-        labelText: definition.label,
-        helperText: definition.hint,
-      ),
-    );
-  }
-}
+String? _requiredField(String? value) =>
+    value == null || value.trim().isEmpty ? '此项为必填项' : null;
 
 class _RoleplayGroupEditor extends StatelessWidget {
   const _RoleplayGroupEditor({
@@ -966,9 +921,9 @@ class _RoleplayGroupEditor extends StatelessWidget {
                   enabled: enabled,
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: '你的倾向',
-                    helperText: 'AI 将根据填写的内容编写这一整组；留空则自由发挥',
+                    decoration: InputDecoration(
+                      labelText: '你的想法',
+                      helperText: '描述你对角色$title的想法或偏好',
                   ),
                 )
               : Column(

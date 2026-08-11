@@ -41,14 +41,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('年龄'), findsOneWidget);
 
-    await tester.tap(find.byType(Switch).first);
+    await tester.tap(find.byKey(const ValueKey('omit-roleplay-switch')));
     await tester.pumpAndSettle();
 
     expect(find.text('年龄'), findsNothing);
     expect(find.text('人物塑造'), findsOneWidget);
   });
 
-  testWidgets('核心引导默认不勾选由 AI 决定', (tester) async {
+  testWidgets('建卡要求默认显示四项确定选项和玩法偏好', (tester) async {
     SharedPreferences.setMockInitialValues({
       'ai_character_disclosure_accepted_v1': true,
     });
@@ -71,13 +71,26 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final firstCheckbox = tester.widget<Checkbox>(find.byType(Checkbox).first);
-    expect(firstCheckbox.value, isFalse);
-    expect(find.text('角色姓名 *'), findsOneWidget);
-    expect(find.text('AI将严格遵循你填写的内容'), findsWidgets);
+    final modeSwitch = tester.widget<SwitchListTile>(
+      find.byKey(const ValueKey('generate-from-description-switch')),
+    );
+    expect(modeSwitch.value, isFalse);
+    expect(find.text('角色描述 *'), findsNothing);
+    expect(find.text('职业 *'), findsOneWidget);
+    expect(find.text('种族 *'), findsOneWidget);
+    expect(find.text('背景 *'), findsOneWidget);
+    expect(find.text('阵营 *'), findsOneWidget);
+    expect(find.text('玩法偏好 *'), findsOneWidget);
+    final classDecorator = tester.widget<InputDecorator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('classAndSubclass-choice-field')),
+        matching: find.byType(InputDecorator),
+      ),
+    );
+    expect(classDecorator.decoration.helperText, isNull);
   });
 
-  testWidgets('由 AI 决定重新勾选后会清除旧的必填错误', (tester) async {
+  testWidgets('从想法生成会切换必填字段并保留两种模式的输入', (tester) async {
     SharedPreferences.setMockInitialValues({
       'ai_character_disclosure_accepted_v1': true,
     });
@@ -99,18 +112,40 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final firstCheckbox = find.byType(Checkbox).first;
-    final firstAiLabel = find.text('由AI决定').first;
+    await tester.enterText(
+      find.byKey(const ValueKey('classAndSubclass-choice-field')),
+      '战士（奥法骑士）',
+    );
     tester.state<FormState>(find.byType(Form)).validate();
     await tester.pump();
-    expect(find.textContaining('请填写角色姓名'), findsOneWidget);
+    expect(find.text('此项为必填项'), findsNWidgets(4));
 
-    await tester.ensureVisible(firstAiLabel);
+    final modeSwitch = find.byKey(
+      const ValueKey('generate-from-description-switch'),
+    );
+    await tester.ensureVisible(modeSwitch);
     await tester.pumpAndSettle();
-    await tester.tap(firstAiLabel);
+    await tester.tap(modeSwitch);
     await tester.pumpAndSettle();
-    expect(find.textContaining('请填写角色姓名'), findsNothing);
-    expect(tester.widget<Checkbox>(firstCheckbox).value, isTrue);
+    expect(find.text('职业 *'), findsNothing);
+    expect(find.text('角色描述 *'), findsOneWidget);
+    expect(find.text('描述你想要扮演的角色'), findsOneWidget);
+    expect(find.text('玩法偏好 *'), findsOneWidget);
+
+    tester.state<FormState>(find.byType(Form)).validate();
+    await tester.pump();
+    expect(find.text('此项为必填项'), findsNWidgets(2));
+    await tester.enterText(
+      find.byKey(const ValueKey('character-description-field')),
+      '想扮演能使用魔法保护队友的前排战士',
+    );
+
+    await tester.tap(modeSwitch);
+    await tester.pumpAndSettle();
+    final restoredClassField = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('classAndSubclass-choice-field')),
+    );
+    expect(restoredClassField.controller?.text, '战士（奥法骑士）');
   });
 
   testWidgets('六维策略弹窗仅提供确认进入编辑器', (tester) async {
@@ -140,18 +175,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (var index = 0; index < 5; index++) {
-      final toggle = find.text('由AI决定').at(index);
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-    }
-    final submit = find.text('生成角色草稿');
-    await tester.dragUntilVisible(
-      submit,
-      find.byType(ListView),
-      const Offset(0, -500),
+    final modeSwitch = find.byKey(
+      const ValueKey('generate-from-description-switch'),
     );
+    await tester.ensureVisible(modeSwitch);
+    await tester.tap(modeSwitch);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('character-description-field')),
+      '想扮演保护同伴的自然施法者',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('gameplay-preference-field')),
+      '保持距离，优先支援和控制敌人',
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    final submit = find.text('生成角色草稿');
+    await tester.ensureVisible(submit);
     await tester.pumpAndSettle();
     await tester.tap(submit);
     await tester.pump();

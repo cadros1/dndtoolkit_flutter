@@ -17,19 +17,35 @@ void main() {
     });
   });
 
-  test('guidance distinguishes hard constraints from AI preferences', () {
+  test('build requirements distinguish description and exact choice modes', () {
     expect(
-      const AiGuidanceField(text: '', aiDecides: false).validate('职业'),
-      contains('职业'),
+      const AiBuildRequirements.fromDescription(
+        characterDescription: '',
+        gameplayPreference: '',
+      ).validate(),
+      containsAll(['请填写角色描述', '请填写玩法偏好']),
+    );
+    final prompt = const AiBuildRequirements.fromDescription(
+      characterDescription: '来自荒野的远程支援者',
+      gameplayPreference: '保持距离并帮助队友',
+    ).toJson();
+    expect(
+      (prompt['characterSelection']! as Map<String, dynamic>)['mode'],
+      'generate_from_description',
     );
     expect(
-      const AiGuidanceField(text: '', aiDecides: true).validate('职业'),
-      isNull,
+      (prompt['gameplayPreference']! as Map<String, dynamic>)['applyTo'],
+      containsAll(['equipment', 'spells', 'classFeatures', 'otherAbilities']),
     );
-    expect(const AiGuidanceField(text: '擅长自然魔法', aiDecides: true).toJson(), {
-      'mode': 'preference',
-      'text': '擅长自然魔法',
-    });
+    expect(_exactRequirements.validate(), isEmpty);
+    final exactSelection =
+        _exactRequirements.toJson()['characterSelection']!
+            as Map<String, dynamic>;
+    expect(exactSelection['mode'], 'use_exact_choices');
+    expect(
+      (exactSelection['choices']! as Map<String, dynamic>)['classAndSubclass'],
+      '游侠',
+    );
   });
 
   test('4d6dl1 drops exactly one lowest die for every score', () {
@@ -49,7 +65,7 @@ void main() {
       final request = AiCharacterBuildRequest(
         configId: 'config',
         totalLevel: 1,
-        guidance: const {},
+        requirements: _exactRequirements,
         roleplay: _omittedRoleplay,
         abilitySpec: const AiAbilitySpec.standard(),
       );
@@ -80,7 +96,7 @@ void main() {
     final request = AiCharacterBuildRequest(
       configId: 'config',
       totalLevel: 1,
-      guidance: const {},
+      requirements: _exactRequirements,
       roleplay: _generatedRoleplay,
       abilitySpec: const AiAbilitySpec.standard(),
     );
@@ -91,7 +107,7 @@ void main() {
     final request = AiCharacterBuildRequest(
       configId: 'config',
       totalLevel: 1,
-      guidance: const {},
+      requirements: _exactRequirements,
       roleplay: AiRoleplayInput(
         omit: false,
         appearanceAiDecides: false,
@@ -132,7 +148,7 @@ void main() {
       final exactRequest = AiCharacterBuildRequest(
         configId: 'config',
         totalLevel: 1,
-        guidance: const {},
+        requirements: _exactRequirements,
         roleplay: const AiRoleplayInput(
           omit: false,
           appearanceAiDecides: false,
@@ -191,6 +207,14 @@ void main() {
     expect(draft.spellbook.allSpells[1].spells, hasLength(12));
   });
 }
+
+const _exactRequirements = AiBuildRequirements.exactChoices(
+  classAndSubclass: '游侠',
+  raceAndSubrace: '木精灵',
+  background: '侍僧',
+  alignment: '中立善良',
+  gameplayPreference: '远程支援并探索荒野',
+);
 
 const _omittedRoleplay = AiRoleplayInput(
   omit: true,
