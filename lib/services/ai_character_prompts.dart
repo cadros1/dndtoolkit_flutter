@@ -153,25 +153,27 @@ const aiDerivedSchemaPrompt = r'''
 
 const aiNarrativeAppearanceSystemPrompt = r'''
 现在是第四阶段：生成外貌。下面是具体要求：
-根据已经确定的角色信息和用户对角色的外貌倾向，生成年龄、身高、体重、眼睛、皮肤和头发。
+根据已经确定的角色信息和用户对角色的外貌倾向，生成年龄、身高、体重、眼睛、皮肤、头发和附加特征。
 若用户没有特别说明，本角色生活在费伦大陆（被遗忘的国度）。
+附加特征（additionalFeaturesAndTraits）指无法用年龄、身高、体重、眼睛、皮肤和头发六项表达的其它外观特征。
 职业、等级、子职、种族、背景、战斗定位、冒险定位和机械选择都是既定事实，不得改变。
 只生成外貌，不生成或改写姓名、阵营、个性、背景故事及其它人物设定。
 ''';
 
 const aiNarrativePersonalitySystemPrompt = r'''
 现在是第四阶段：生成人物设定。下面是具体要求：
-根据已经确定的角色信息和用户对角色的人物设定倾向，生成个性、理想、纽带、缺陷、盟友与组织、与背景故事相关的所持物、附加外貌特征、角色经历和角色背景故事。
+根据已经确定的角色信息和用户对角色的人物设定倾向，生成个性、理想、纽带、缺陷、盟友与组织、与背景故事相关的所持物、角色经历和角色背景故事。
 若用户没有特别说明，本角色生活在费伦大陆（被遗忘的国度）。
 职业、等级、子职、种族、背景、战斗定位、冒险定位和机械选择都是既定事实，不得改变。
-只生成人物设定，不生成或改写姓名、阵营、年龄、身高、体重、眼睛、皮肤和头发。
-treasure 指与背景故事相关的事物，不是装备；additionalFeaturesAndTraits 是附加外貌特征；characterExperience 是本次冒险前的经历及参团关联；characterBackstory 要体现角色背景与个性的形成。
+只生成人物设定，不生成或改写姓名、阵营、年龄、身高、体重、眼睛、皮肤、头发和附加特征。
+treasure 指与背景故事相关的事物，不是装备；characterExperience 是本次冒险前的经历及参团关联；characterBackstory 要体现角色背景与个性的形成。
 ''';
 
 const aiNarrativeAllSystemPrompt = r'''
 现在是第四阶段：生成外貌与人物设定。下面是具体要求：
 根据已经确定的角色信息、用户对角色的外貌倾向和人物设定倾向，生成外貌、个性和背景故事，使三者彼此连贯。
 若用户没有特别说明，本角色生活在费伦大陆（被遗忘的国度）。
+附加特征（additionalFeaturesAndTraits）指无法用年龄、身高、体重、眼睛、皮肤和头发六项表达的其它外观特征。
 职业、等级、子职、种族、背景、战斗定位、冒险定位和机械选择都是既定事实，不得改变。
 不得生成或改写姓名与阵营。
 treasure 指与背景故事相关的事物，不是装备；additionalFeaturesAndTraits 是附加外貌特征；characterExperience 是本次冒险前的经历及参团关联；characterBackstory 要体现角色背景与个性的形成。
@@ -181,7 +183,7 @@ const aiNarrativeAppearanceSchemaPrompt = r'''
 只返回一个 JSON 对象，不要使用 Markdown、注释或额外字段：
 {
   "schemaVersion":1,
-  "age":"","height":"","weight":"","eyes":"","skin":"","hair":""
+  "age":"","height":"","weight":"","eyes":"","skin":"","hair":"","additionalFeaturesAndTraits":""
 }
 ''';
 
@@ -190,7 +192,7 @@ const aiNarrativePersonalitySchemaPrompt = r'''
 {
   "schemaVersion":1,
   "personalityTraits":"","ideals":"","bonds":"","flaws":"",
-  "alliesAndOrganizations":"","treasure":"","additionalFeaturesAndTraits":"",
+  "alliesAndOrganizations":"","treasure":"",
   "characterExperience":"","characterBackstory":""
 }
 ''';

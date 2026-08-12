@@ -69,6 +69,7 @@ const aiAppearanceKeys = <String>[
   'eyes',
   'skin',
   'hair',
+  'additionalFeaturesAndTraits',
 ];
 
 const aiNarrativeKeys = <String>[
@@ -78,7 +79,6 @@ const aiNarrativeKeys = <String>[
   'flaws',
   'alliesAndOrganizations',
   'treasure',
-  'additionalFeaturesAndTraits',
   'characterExperience',
   'characterBackstory',
 ];
@@ -578,7 +578,7 @@ class AiCharacterDraft {
         'alliesAndOrganizations',
         roleplay.alliesAndOrganizations,
       ),
-      additionalFeaturesAndTraits: _narrativeValue(
+      additionalFeaturesAndTraits: _appearanceValue(
         request,
         'additionalFeaturesAndTraits',
         roleplay.additionalFeaturesAndTraits,
@@ -1670,7 +1670,7 @@ class AiCharacterAssembly {
         flaws: roleplay('flaws'),
         characterBackstory: roleplay('characterBackstory'),
         alliesAndOrganizations: roleplay('alliesAndOrganizations'),
-        additionalFeaturesAndTraits: roleplay('additionalFeaturesAndTraits'),
+        additionalFeaturesAndTraits: appearance('additionalFeaturesAndTraits'),
         treasure: roleplay('treasure'),
         characterExperience: roleplay('characterExperience'),
         featuresAndTraits: '',

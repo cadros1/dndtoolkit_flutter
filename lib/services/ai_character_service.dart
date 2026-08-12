@@ -18,17 +18,24 @@ class AiServiceException implements Exception {
 }
 
 class AiCharacterService {
-  AiCharacterService({http.Client Function()? clientFactory})
-    : _clientFactory = clientFactory ?? http.Client.new;
+  AiCharacterService({
+    http.Client Function()? clientFactory,
+    this.generationRequestTimeout = defaultGenerationRequestTimeout,
+  }) : assert(generationRequestTimeout > Duration.zero),
+       _clientFactory = clientFactory ?? http.Client.new;
+
+  static const defaultGenerationRequestTimeout = Duration(minutes: 10);
+  static const connectionRequestTimeout = Duration(minutes: 2);
 
   final http.Client Function() _clientFactory;
+  final Duration generationRequestTimeout;
   http.Client? _activeClient;
 
   Future<void> testConnection(AiServiceConfig config, String apiKey) async {
     final result = await _send(config, apiKey, const [
       {'role': 'system', 'content': aiConnectionTestSystemPrompt},
       {'role': 'user', 'content': aiConnectionTestUserPrompt},
-    ]);
+    ], timeout: connectionRequestTimeout);
     try {
       final decoded = jsonDecode(result.content);
       if (decoded is! Map || decoded['ok'] != true) {
@@ -253,6 +260,7 @@ class AiCharacterService {
           data: data,
           previousErrors: previousErrors,
         ),
+        timeout: generationRequestTimeout,
       );
       try {
         if (response.finishReason == 'length') {
@@ -283,8 +291,9 @@ class AiCharacterService {
   Future<_ChatResponse> _send(
     AiServiceConfig config,
     String apiKey,
-    List<Map<String, String>> messages,
-  ) async {
+    List<Map<String, String>> messages, {
+    required Duration timeout,
+  }) async {
     cancelCurrentRequest();
     final client = _clientFactory();
     _activeClient = client;
@@ -315,7 +324,7 @@ class AiCharacterService {
             },
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 120));
+          .timeout(timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AiServiceException(_statusMessage(response.statusCode));
       }

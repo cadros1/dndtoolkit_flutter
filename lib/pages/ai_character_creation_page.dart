@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/ai_character_models.dart';
@@ -49,6 +51,7 @@ const _appearanceFields = <_FieldDefinition>[
   _FieldDefinition('eyes', '眼睛', '眼睛颜色或特征'),
   _FieldDefinition('skin', '皮肤', '皮肤颜色或特征'),
   _FieldDefinition('hair', '头发', '头发颜色、长度或样式'),
+  _FieldDefinition('additionalFeaturesAndTraits', '附加特征', '角色外观上的附加特征'),
 ];
 
 const _personalityFields = <_FieldDefinition>[
@@ -61,7 +64,6 @@ const _personalityFields = <_FieldDefinition>[
 const _backgroundFields = <_FieldDefinition>[
   _FieldDefinition('alliesAndOrganizations', '盟友与组织', '与角色有关的盟友、敌人或组织'),
   _FieldDefinition('treasure', '所持物', '与背景故事相关联的事物，不是装备或援助物'),
-  _FieldDefinition('additionalFeaturesAndTraits', '附加特征', '角色外观上的附加特征'),
   _FieldDefinition('characterExperience', '角色经历', '角色在本次冒险前的经历，以及与本次冒险的关联'),
   _FieldDefinition('characterBackstory', '背景故事', '角色一生中影响其人格塑造的重大事件'),
 ];
@@ -100,6 +102,8 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   AiNarrativeDraft? _narrativeDraft;
   AiGenerationStage? _activeStage;
   AiGenerationStage? _failedStage;
+  Timer? _generationTicker;
+  Duration _generationElapsed = Duration.zero;
 
   @override
   void initState() {
@@ -140,6 +144,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
     _gameplayPreferenceController.dispose();
     _appearanceTendencyController.dispose();
     _narrativeTendencyController.dispose();
+    _generationTicker?.cancel();
     widget.service.cancelCurrentRequest();
     super.dispose();
   }
@@ -411,6 +416,16 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
       return;
     }
     setState(() => _generating = true);
+    final hasPendingGeneration =
+        _confirmedPlan == null ||
+        _mechanicsDraft == null ||
+        _derivedDraft == null ||
+        _narrativeDraft == null;
+    if (hasPendingGeneration) {
+      _startGenerationTimer(reset: true);
+    } else {
+      _resetGenerationTimer();
+    }
     try {
       var plan = _confirmedPlan;
       if (plan == null) {
@@ -421,6 +436,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
           request,
         );
         if (!mounted) return;
+        _pauseGenerationTimer();
         plan = await showDialog<AiBuildPlan>(
           context: context,
           barrierDismissible: false,
@@ -440,6 +456,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
           _confirmedPlan = plan;
           _failedStage = null;
         });
+        _startGenerationTimer();
       }
       await _continueGeneration(config, apiKey, request, plan);
     } on Exception catch (error) {
@@ -451,12 +468,39 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
       }
     } finally {
       if (mounted) {
+        _stopGenerationTimer();
         setState(() {
           _generating = false;
           _activeStage = null;
         });
       }
     }
+  }
+
+  void _startGenerationTimer({bool reset = false}) {
+    if (reset) {
+      _generationTicker?.cancel();
+      _generationTicker = null;
+      _generationElapsed = Duration.zero;
+    }
+    if (_generationTicker != null) return;
+    _generationTicker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _generationElapsed += const Duration(seconds: 1));
+    });
+  }
+
+  void _pauseGenerationTimer() {
+    _generationTicker?.cancel();
+    _generationTicker = null;
+  }
+
+  void _stopGenerationTimer() => _pauseGenerationTimer();
+
+  void _resetGenerationTimer() {
+    _generationTicker?.cancel();
+    _generationTicker = null;
+    if (mounted) setState(() => _generationElapsed = Duration.zero);
   }
 
   void _setActiveStage(AiGenerationStage stage) {
@@ -734,8 +778,11 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _RoleplayGroupEditor(
+                        switchKey: const ValueKey(
+                          'generate-appearance-from-description-switch',
+                        ),
                         title: '外貌特征',
-                        subtitle: '年龄、身高、体重、眼睛、皮肤、头发',
+                        subtitle: '年龄、身高、体重、眼睛、皮肤、头发和附加特征',
                         aiDecides: _appearanceAiDecides,
                         tendencyController: _appearanceTendencyController,
                         fields: _appearanceFields,
@@ -747,6 +794,9 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
                       ),
                       const SizedBox(height: 24),
                       _RoleplayGroupEditor(
+                        switchKey: const ValueKey(
+                          'generate-narrative-from-description-switch',
+                        ),
                         title: '个性特征与背景设定',
                         subtitle: '个性、理想、纽带、缺陷，以及角色的关系和经历',
                         aiDecides: _narrativeAiDecides,
@@ -976,6 +1026,8 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
                   ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(value: currentStage.number / 4),
+                  const SizedBox(height: 8),
+                  _GenerationElapsedTime(elapsed: _generationElapsed),
                 ],
               ),
             ),
@@ -1092,8 +1144,50 @@ String _friendlyError(Exception error) => switch (error) {
 String? _requiredField(String? value) =>
     value == null || value.trim().isEmpty ? '此项为必填项' : null;
 
+class _GenerationElapsedTime extends StatelessWidget {
+  const _GenerationElapsedTime({required this.elapsed});
+
+  final Duration elapsed;
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = _formatDuration(elapsed);
+    return Semantics(
+      label: '本次生成用时 $formatted',
+      child: Row(
+        children: [
+          const Icon(Icons.timer_outlined, size: 20),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('本次生成用时')),
+          SizedBox(
+            width: 72,
+            child: Text(
+              key: const ValueKey('generation-elapsed-value'),
+              formatted,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatDuration(Duration value) {
+    final hours = value.inHours;
+    final minutes = value.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return hours > 0
+        ? '${hours.toString().padLeft(2, '0')}:$minutes:$seconds'
+        : '$minutes:$seconds';
+  }
+}
+
 class _RoleplayGroupEditor extends StatelessWidget {
   const _RoleplayGroupEditor({
+    required this.switchKey,
     required this.title,
     required this.subtitle,
     required this.aiDecides,
@@ -1104,6 +1198,7 @@ class _RoleplayGroupEditor extends StatelessWidget {
     required this.onAiDecidesChanged,
   });
 
+  final Key switchKey;
   final String title;
   final String subtitle;
   final bool aiDecides;
@@ -1123,9 +1218,9 @@ class _RoleplayGroupEditor extends StatelessWidget {
         const SizedBox(height: 4),
         Text(subtitle, style: textTheme.bodySmall),
         SwitchListTile(
+          key: switchKey,
           contentPadding: EdgeInsets.zero,
-          title: const Text('由AI决定'),
-          subtitle: Text(aiDecides ? '填写你的想法，若留空则完全由AI决定' : '这些内容将由你填写'),
+          title: const Text('从你的想法生成'),
           value: aiDecides,
           onChanged: enabled ? onAiDecidesChanged : null,
         ),
