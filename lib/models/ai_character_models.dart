@@ -60,40 +60,6 @@ class AiBuildRequirements {
     }
     return errors;
   }
-
-  Map<String, dynamic> toJson() => {
-    'characterSelection': switch (mode) {
-      AiBuildRequirementMode.fromDescription => {
-        'mode': 'generate_from_description',
-        'description': characterDescription.trim(),
-        'choose': const [
-          'classAndSubclass',
-          'raceAndSubrace',
-          'background',
-          'alignment',
-        ],
-      },
-      AiBuildRequirementMode.exactChoices => {
-        'mode': 'use_exact_choices',
-        'choices': {
-          'characterName': characterName.trim(),
-          'classAndSubclass': classAndSubclass.trim(),
-          'raceAndSubrace': raceAndSubrace.trim(),
-          'background': background.trim(),
-          'alignment': alignment.trim(),
-        },
-      },
-    },
-    'gameplayPreference': {
-      'text': gameplayPreference.trim(),
-      'applyTo': const [
-        'equipment',
-        'spells',
-        'classFeatures',
-        'otherAbilities',
-      ],
-    },
-  };
 }
 
 const aiAppearanceKeys = <String>[
@@ -114,17 +80,6 @@ const aiNarrativeKeys = <String>[
   'treasure',
   'additionalFeaturesAndTraits',
   'characterExperience',
-  'characterBackstory',
-];
-
-const aiPromptNarrativeKeys = <String>[
-  'personalityTraits',
-  'ideals',
-  'bonds',
-  'flaws',
-  'alliesAndOrganizations',
-  'treasure',
-  'additionalFeaturesAndTraits',
   'characterBackstory',
 ];
 
@@ -152,35 +107,6 @@ class AiRoleplayInput {
   String appearanceValue(String key) => (appearanceValues[key] ?? '').trim();
 
   String narrativeValue(String key) => (narrativeValues[key] ?? '').trim();
-
-  Map<String, dynamic> toJson() {
-    if (omit) return const {'mode': 'omit'};
-    return {
-      'mode': 'grouped',
-      'appearance': appearanceAiDecides
-          ? {'mode': 'generate_all', 'tendency': appearanceTendency.trim()}
-          : {
-              'mode': 'use_exact_input',
-              'values': {
-                for (final key in aiAppearanceKeys) key: appearanceValue(key),
-              },
-            },
-      'personalityAndBackground': narrativeAiDecides
-          ? {'mode': 'generate_all', 'tendency': narrativeTendency.trim()}
-          : {
-              'mode': 'use_exact_input',
-              'values': {
-                for (final key in aiPromptNarrativeKeys)
-                  key: narrativeValue(key),
-              },
-            },
-      'fieldSemantics': const {
-        'treasure': '与角色背景故事相关联的事物，不是装备或援助物',
-        'additionalFeaturesAndTraits': '角色外观上的附加特征',
-        'characterBackstory': '角色一生中影响其人格塑造的重大事件',
-      },
-    };
-  }
 }
 
 enum AiAbilityMethod { pointBuy, rolled, providedArray, standardArray }
@@ -322,7 +248,6 @@ class AiAbilitySpec {
     'method': method.name,
     if (budget != null) 'budget': budget,
     if (values != null) 'values': values,
-    'allocation': 'AI must assign the base values to the six abilities',
   };
 }
 
@@ -350,14 +275,6 @@ class AiCharacterBuildRequest {
     if (abilityError != null) errors.add(abilityError);
     return errors;
   }
-
-  Map<String, dynamic> toPromptJson() => {
-    'ruleset': 'D&D 5E 2014 official content only',
-    'totalLevel': totalLevel,
-    'buildRequirements': requirements.toJson(),
-    'roleplay': roleplay.toJson(),
-    'abilityGeneration': abilitySpec.toJson(),
-  };
 }
 
 class AbilityScores {
@@ -1047,3 +964,781 @@ bool _bool(Map<String, dynamic> json, String key, String path) {
   if (value is! bool) throw FormatException('$path.$key 必须是布尔值');
   return value;
 }
+
+enum AiGenerationStage { plan, mechanics, derived, narrative }
+
+extension AiGenerationStageLabel on AiGenerationStage {
+  String get label => switch (this) {
+    AiGenerationStage.plan => '设计构筑方案',
+    AiGenerationStage.mechanics => '细化构筑方案',
+    AiGenerationStage.derived => '计算衍生数值',
+    AiGenerationStage.narrative => '塑造人物',
+  };
+
+  int get number => index + 1;
+}
+
+class AiBuildPlanClass {
+  const AiBuildPlanClass({
+    required this.name,
+    required this.level,
+    required this.subclass,
+  });
+
+  final String name;
+  final int level;
+  final String subclass;
+
+  factory AiBuildPlanClass.fromJson(Map<String, dynamic> json, String path) {
+    _checkKeys(json, const {'name', 'level', 'subclass'}, path);
+    return AiBuildPlanClass(
+      name: _nonEmptyString(json, 'name', path),
+      level: _int(json, 'level', path),
+      subclass: _string(json, 'subclass', path),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'level': level,
+    'subclass': subclass,
+  };
+}
+
+class AiBuildPlan {
+  const AiBuildPlan({
+    this.characterName = '',
+    this.alignment = '',
+    required this.classes,
+    required this.raceAndSubrace,
+    required this.background,
+    required this.combatRole,
+    required this.adventureRole,
+    required this.synergy,
+    required this.warnings,
+  });
+
+  final String characterName;
+  final String alignment;
+  final List<AiBuildPlanClass> classes;
+  final String raceAndSubrace;
+  final String background;
+  final String combatRole;
+  final String adventureRole;
+  final String synergy;
+  final String warnings;
+
+  factory AiBuildPlan.fromJson(
+    Map<String, dynamic> json, {
+    bool includesIdentity = false,
+  }) {
+    _checkKeys(json, {
+      'schemaVersion',
+      if (includesIdentity) 'characterName',
+      if (includesIdentity) 'alignment',
+      'classes',
+      'raceAndSubrace',
+      'background',
+      'combatRole',
+      'adventureRole',
+      'synergy',
+      'warnings',
+    }, 'plan');
+    if (_int(json, 'schemaVersion', 'plan') != 1) {
+      throw const FormatException('不支持的构筑方案响应版本');
+    }
+    final rawClasses = _list(json, 'classes', 'plan');
+    if (rawClasses.isEmpty || rawClasses.length > 4) {
+      throw const FormatException('构筑方案必须包含 1–4 个职业');
+    }
+    return AiBuildPlan(
+      characterName: includesIdentity
+          ? _nonEmptyString(json, 'characterName', 'plan')
+          : '',
+      alignment: includesIdentity
+          ? _nonEmptyString(json, 'alignment', 'plan')
+          : '',
+      classes: List.generate(
+        rawClasses.length,
+        (index) => AiBuildPlanClass.fromJson(
+          _asMap(rawClasses[index], 'plan.classes[$index]'),
+          'plan.classes[$index]',
+        ),
+      ),
+      raceAndSubrace: _nonEmptyString(json, 'raceAndSubrace', 'plan'),
+      background: _nonEmptyString(json, 'background', 'plan'),
+      combatRole: _nonEmptyString(json, 'combatRole', 'plan'),
+      adventureRole: _nonEmptyString(json, 'adventureRole', 'plan'),
+      synergy: _string(json, 'synergy', 'plan'),
+      warnings: _string(json, 'warnings', 'plan'),
+    );
+  }
+
+  List<String> validate(int totalLevel, {bool requireIdentity = false}) {
+    final errors = <String>[];
+    if (requireIdentity && characterName.trim().isEmpty) errors.add('角色姓名不能为空');
+    if (requireIdentity && alignment.trim().isEmpty) errors.add('阵营不能为空');
+    if (classes.isEmpty || classes.length > 4) errors.add('职业组成必须包含 1–4 项');
+    if (classes.any((item) => item.name.trim().isEmpty)) errors.add('职业名称不能为空');
+    if (classes.any((item) => item.level < 1 || item.level > 20) ||
+        classes.fold<int>(0, (sum, item) => sum + item.level) != totalLevel) {
+      errors.add('职业等级之和必须等于 $totalLevel');
+    }
+    if (raceAndSubrace.trim().isEmpty) errors.add('种族不能为空');
+    if (background.trim().isEmpty) errors.add('背景不能为空');
+    if (combatRole.trim().isEmpty) errors.add('战斗定位不能为空');
+    if (adventureRole.trim().isEmpty) errors.add('冒险定位不能为空');
+    return errors;
+  }
+
+  String get classAndLevel => classes
+      .map((item) {
+        final subclass = item.subclass.trim().isEmpty
+            ? ''
+            : '（${item.subclass.trim()}）';
+        return '${item.name.trim()}$subclass ${item.level}';
+      })
+      .join(' / ');
+
+  Map<String, dynamic> toJson() => {
+    'classes': classes.map((item) => item.toJson()).toList(),
+    'raceAndSubrace': raceAndSubrace,
+    'background': background,
+    'combatRole': combatRole,
+    'adventureRole': adventureRole,
+    'synergy': synergy,
+    'warnings': warnings,
+  };
+
+  Map<String, dynamic> toNarrativePromptJson() => {
+    ...toJson(),
+    'alignment': alignment,
+  };
+}
+
+class AiMechanicSpellGroup {
+  const AiMechanicSpellGroup({required this.level, required this.spells});
+
+  final int level;
+  final List<Spell> spells;
+}
+
+class AiMechanicsDraft {
+  const AiMechanicsDraft({
+    required this.abilities,
+    required this.advancementChoices,
+    required this.proficiencies,
+    required this.specialAbilities,
+    required this.attacksAndSpellcastingNotes,
+    required this.spellcastingClass,
+    required this.spellcastingAbility,
+    required this.spellGroups,
+    required this.weaponNames,
+    required this.inventory,
+  });
+
+  final AiAbilityBreakdown abilities;
+  final String advancementChoices;
+  final Proficiencies proficiencies;
+  final String specialAbilities;
+  final String attacksAndSpellcastingNotes;
+  final String spellcastingClass;
+  final String spellcastingAbility;
+  final List<AiMechanicSpellGroup> spellGroups;
+  final List<String> weaponNames;
+  final Inventory inventory;
+
+  factory AiMechanicsDraft.fromJson(Map<String, dynamic> json) {
+    _checkKeys(json, const {
+      'schemaVersion',
+      'abilities',
+      'proficiencies',
+      'specialAbilities',
+      'attacksAndSpellcastingNotes',
+      'spellcasting',
+      'weapons',
+      'inventory',
+    }, 'mechanics');
+    if (_int(json, 'schemaVersion', 'mechanics') != 1) {
+      throw const FormatException('不支持的机械选择响应版本');
+    }
+    final abilitiesJson = _map(json, 'abilities', 'mechanics');
+    _checkKeys(abilitiesJson, const {
+      'baseAbilities',
+      'racialBonuses',
+      'advancementAdjustments',
+      'advancementChoices',
+    }, 'mechanics.abilities');
+    final base = AbilityScores.fromJson(
+      _map(abilitiesJson, 'baseAbilities', 'mechanics.abilities'),
+      'mechanics.abilities.baseAbilities',
+    );
+    final racial = AbilityScores.fromJson(
+      _map(abilitiesJson, 'racialBonuses', 'mechanics.abilities'),
+      'mechanics.abilities.racialBonuses',
+    );
+    final advancement = AbilityScores.fromJson(
+      _map(abilitiesJson, 'advancementAdjustments', 'mechanics.abilities'),
+      'mechanics.abilities.advancementAdjustments',
+    );
+    final finalScores = AbilityScores(
+      strength: base.strength + racial.strength + advancement.strength,
+      dexterity: base.dexterity + racial.dexterity + advancement.dexterity,
+      constitution:
+          base.constitution + racial.constitution + advancement.constitution,
+      intelligence:
+          base.intelligence + racial.intelligence + advancement.intelligence,
+      wisdom: base.wisdom + racial.wisdom + advancement.wisdom,
+      charisma: base.charisma + racial.charisma + advancement.charisma,
+    );
+    final spellcasting = _map(json, 'spellcasting', 'mechanics');
+    _checkKeys(spellcasting, const {
+      'class',
+      'ability',
+      'groups',
+    }, 'mechanics.spellcasting');
+    final rawGroups = _list(spellcasting, 'groups', 'mechanics.spellcasting');
+    if (rawGroups.length > 10) throw const FormatException('法术环级分组不能超过 10 组');
+    final seenLevels = <int>{};
+    final groups = <AiMechanicSpellGroup>[];
+    for (var index = 0; index < rawGroups.length; index++) {
+      final path = 'mechanics.spellcasting.groups[$index]';
+      final group = _asMap(rawGroups[index], path);
+      _checkKeys(group, const {'level', 'spells'}, path);
+      final level = _int(group, 'level', path);
+      if (level < 0 || level > 9 || !seenLevels.add(level)) {
+        throw FormatException('$path 的环级无效或重复');
+      }
+      final rawSpells = _list(group, 'spells', path);
+      final capacity = SpellLevelGroup.initDefault(level).spells.length;
+      if (rawSpells.length > capacity) {
+        throw FormatException('$path 的法术数量超过编辑器容量');
+      }
+      groups.add(
+        AiMechanicSpellGroup(
+          level: level,
+          spells: List.generate(rawSpells.length, (spellIndex) {
+            final spellPath = '$path.spells[$spellIndex]';
+            final spell = _asMap(rawSpells[spellIndex], spellPath);
+            _checkKeys(spell, const {'name', 'isPrepared'}, spellPath);
+            return Spell(
+              name: _nonEmptyString(spell, 'name', spellPath),
+              isPrepared: _bool(spell, 'isPrepared', spellPath),
+            );
+          }),
+        ),
+      );
+    }
+    final rawWeapons = _list(json, 'weapons', 'mechanics');
+    if (rawWeapons.length > 20) throw const FormatException('武器数量不能超过 20');
+    return AiMechanicsDraft(
+      abilities: AiAbilityBreakdown(
+        base: base,
+        racialBonuses: racial,
+        advancementAdjustments: advancement,
+        finalScores: finalScores,
+      ),
+      advancementChoices: _string(
+        abilitiesJson,
+        'advancementChoices',
+        'mechanics.abilities',
+      ),
+      proficiencies: _parseProficiencies(
+        _map(json, 'proficiencies', 'mechanics'),
+      ),
+      specialAbilities: _string(json, 'specialAbilities', 'mechanics'),
+      attacksAndSpellcastingNotes: _string(
+        json,
+        'attacksAndSpellcastingNotes',
+        'mechanics',
+      ),
+      spellcastingClass: _string(
+        spellcasting,
+        'class',
+        'mechanics.spellcasting',
+      ),
+      spellcastingAbility: _string(
+        spellcasting,
+        'ability',
+        'mechanics.spellcasting',
+      ),
+      spellGroups: groups,
+      weaponNames: List.generate(rawWeapons.length, (index) {
+        final path = 'mechanics.weapons[$index]';
+        final weapon = _asMap(rawWeapons[index], path);
+        _checkKeys(weapon, const {'name'}, path);
+        return _nonEmptyString(weapon, 'name', path);
+      }),
+      inventory: _parseInventory(_map(json, 'inventory', 'mechanics')),
+    );
+  }
+
+  List<String> validate(AiAbilitySpec spec) => abilities.validate(spec);
+
+  Map<String, dynamic> toPromptJson() => {
+    'abilities': {
+      'baseAbilities': _scoresJson(abilities.base),
+      'racialBonuses': _scoresJson(abilities.racialBonuses),
+      'advancementAdjustments': _scoresJson(abilities.advancementAdjustments),
+      'finalAbilities': _scoresJson(abilities.finalScores),
+      'advancementChoices': advancementChoices,
+    },
+    'proficiencies': _proficienciesJson(proficiencies),
+    'specialAbilities': specialAbilities,
+    'attacksAndSpellcastingNotes': attacksAndSpellcastingNotes,
+    'spellcasting': {
+      'class': spellcastingClass,
+      'ability': spellcastingAbility,
+      'groups': spellGroups
+          .map(
+            (group) => {
+              'level': group.level,
+              'spells': group.spells
+                  .map(
+                    (spell) => {
+                      'name': spell.name,
+                      'isPrepared': spell.isPrepared,
+                    },
+                  )
+                  .toList(),
+            },
+          )
+          .toList(),
+    },
+    'weapons': weaponNames,
+    'inventory': {
+      'cp': inventory.cP,
+      'sp': inventory.sP,
+      'ep': inventory.eP,
+      'gp': inventory.gP,
+      'pp': inventory.pP,
+      'equipmentText': inventory.equipmentText,
+    },
+  };
+}
+
+class AiDerivedWeapon {
+  const AiDerivedWeapon({required this.attackBonus, required this.damage});
+  final int attackBonus;
+  final String damage;
+}
+
+class AiDerivedCalculationCheck {
+  const AiDerivedCalculationCheck({
+    required this.field,
+    required this.base,
+    required this.adjustments,
+    required this.finalValue,
+  });
+
+  final String field;
+  final int base;
+  final List<int> adjustments;
+  final int finalValue;
+
+  factory AiDerivedCalculationCheck.fromJson(
+    Map<String, dynamic> json,
+    String path,
+  ) {
+    _checkKeys(json, const {
+      'field',
+      'base',
+      'adjustments',
+      'finalValue',
+    }, path);
+    final rawAdjustments = _list(json, 'adjustments', path);
+    return AiDerivedCalculationCheck(
+      field: _nonEmptyString(json, 'field', path),
+      base: _int(json, 'base', path),
+      adjustments: List.generate(rawAdjustments.length, (index) {
+        final value = rawAdjustments[index];
+        if (value is! int) {
+          throw FormatException('$path.adjustments[$index] 必须是整数');
+        }
+        return value;
+      }),
+      finalValue: _int(json, 'finalValue', path),
+    );
+  }
+
+  bool get sumIsConsistent =>
+      base + adjustments.fold<int>(0, (sum, value) => sum + value) ==
+      finalValue;
+}
+
+class AiDerivedDraft {
+  const AiDerivedDraft({
+    required this.experiencePoints,
+    required this.passivePerception,
+    required this.armorClass,
+    required this.initiative,
+    required this.speed,
+    required this.hitPointsMax,
+    required this.hitDiceTotal,
+    required this.spellSaveDC,
+    required this.spellAttackBonus,
+    required this.spellSlots,
+    required this.weapons,
+    required this.specialAbilityNumericNotes,
+    required this.calculationChecks,
+    required this.valueExplanations,
+  });
+
+  final int experiencePoints;
+  final int passivePerception;
+  final int armorClass;
+  final int initiative;
+  final String speed;
+  final int hitPointsMax;
+  final String hitDiceTotal;
+  final int spellSaveDC;
+  final int spellAttackBonus;
+  final Map<int, int> spellSlots;
+  final List<AiDerivedWeapon> weapons;
+  final String specialAbilityNumericNotes;
+  final List<AiDerivedCalculationCheck> calculationChecks;
+  final List<String> valueExplanations;
+
+  factory AiDerivedDraft.fromJson(Map<String, dynamic> json) {
+    _checkKeys(json, const {
+      'schemaVersion',
+      'experiencePoints',
+      'passivePerception',
+      'armorClass',
+      'initiative',
+      'speed',
+      'hitPointsMax',
+      'hitDiceTotal',
+      'spellSaveDC',
+      'spellAttackBonus',
+      'spellSlots',
+      'weapons',
+      'specialAbilityNumericNotes',
+      'calculationChecks',
+      'valueExplanations',
+    }, 'derived');
+    if (_int(json, 'schemaVersion', 'derived') != 1) {
+      throw const FormatException('不支持的衍生数值响应版本');
+    }
+    final slots = <int, int>{};
+    final rawSlots = _list(json, 'spellSlots', 'derived');
+    for (var index = 0; index < rawSlots.length; index++) {
+      final path = 'derived.spellSlots[$index]';
+      final slot = _asMap(rawSlots[index], path);
+      _checkKeys(slot, const {'level', 'totalSlots'}, path);
+      final level = _int(slot, 'level', path);
+      final total = _int(slot, 'totalSlots', path);
+      if (level < 1 || level > 9 || slots.containsKey(level)) {
+        throw FormatException('$path 的环级无效或重复');
+      }
+      if (total < 0 || total > 20) throw FormatException('$path 的法术位数量无效');
+      slots[level] = total;
+    }
+    final rawWeapons = _list(json, 'weapons', 'derived');
+    final rawChecks = _list(json, 'calculationChecks', 'derived');
+    final rawExplanations = _list(json, 'valueExplanations', 'derived');
+    return AiDerivedDraft(
+      experiencePoints: _int(json, 'experiencePoints', 'derived'),
+      passivePerception: _int(json, 'passivePerception', 'derived'),
+      armorClass: _int(json, 'armorClass', 'derived'),
+      initiative: _int(json, 'initiative', 'derived'),
+      speed: _string(json, 'speed', 'derived'),
+      hitPointsMax: _int(json, 'hitPointsMax', 'derived'),
+      hitDiceTotal: _nonEmptyString(json, 'hitDiceTotal', 'derived'),
+      spellSaveDC: _int(json, 'spellSaveDC', 'derived'),
+      spellAttackBonus: _int(json, 'spellAttackBonus', 'derived'),
+      spellSlots: slots,
+      weapons: List.generate(rawWeapons.length, (index) {
+        final path = 'derived.weapons[$index]';
+        final weapon = _asMap(rawWeapons[index], path);
+        _checkKeys(weapon, const {'attackBonus', 'damage'}, path);
+        return AiDerivedWeapon(
+          attackBonus: _int(weapon, 'attackBonus', path),
+          damage: _nonEmptyString(weapon, 'damage', path),
+        );
+      }),
+      specialAbilityNumericNotes: _string(
+        json,
+        'specialAbilityNumericNotes',
+        'derived',
+      ),
+      calculationChecks: List.generate(
+        rawChecks.length,
+        (index) => AiDerivedCalculationCheck.fromJson(
+          _asMap(rawChecks[index], 'derived.calculationChecks[$index]'),
+          'derived.calculationChecks[$index]',
+        ),
+      ),
+      valueExplanations: List.generate(rawExplanations.length, (index) {
+        final value = rawExplanations[index];
+        if (value is! String) {
+          throw FormatException('derived.valueExplanations[$index] 必须是字符串');
+        }
+        return value.trim();
+      }),
+    );
+  }
+
+  List<String> validate(AiMechanicsDraft mechanics) {
+    final errors = <String>[];
+    if (hitPointsMax < 1) errors.add('最大生命值必须大于 0');
+    if (experiencePoints < 0) errors.add('经验值不能为负数');
+    if (weapons.length != mechanics.weaponNames.length) {
+      errors.add('武器衍生数值必须与机械选择中的武器数量一致');
+    }
+    final expected = <String, int>{
+      'passivePerception': passivePerception,
+      'armorClass': armorClass,
+      'initiative': initiative,
+      'hitPointsMax': hitPointsMax,
+      'spellSaveDC': spellSaveDC,
+      'spellAttackBonus': spellAttackBonus,
+      for (final entry in spellSlots.entries)
+        'spellSlot:${entry.key}': entry.value,
+      for (var index = 0; index < weapons.length; index++)
+        'weaponAttackBonus:$index': weapons[index].attackBonus,
+    };
+    final seen = <String>{};
+    for (final check in calculationChecks) {
+      final finalValue = expected[check.field];
+      if (finalValue == null) {
+        errors.add('数值组成包含未知字段 ${check.field}');
+      } else if (!seen.add(check.field)) {
+        errors.add('数值组成重复了 ${check.field}');
+      } else {
+        if (!check.sumIsConsistent) {
+          errors.add('${check.field} 的数值组成加法不一致');
+        }
+        if (check.finalValue != finalValue) {
+          errors.add('${check.field} 的最终值与角色数值不一致');
+        }
+      }
+    }
+    final missing = expected.keys.where((key) => !seen.contains(key));
+    if (missing.isNotEmpty) {
+      errors.add('数值组成缺少：${missing.join('、')}');
+    }
+    return errors;
+  }
+}
+
+enum AiNarrativeScope { appearance, personalityAndBackground, all }
+
+class AiNarrativeDraft {
+  const AiNarrativeDraft({required this.values});
+
+  final Map<String, String> values;
+
+  factory AiNarrativeDraft.fromJson(
+    Map<String, dynamic> json,
+    AiNarrativeScope scope,
+  ) {
+    final fields = switch (scope) {
+      AiNarrativeScope.appearance => aiAppearanceKeys.toSet(),
+      AiNarrativeScope.personalityAndBackground => aiNarrativeKeys.toSet(),
+      AiNarrativeScope.all => {...aiAppearanceKeys, ...aiNarrativeKeys},
+    };
+    _checkKeys(json, {'schemaVersion', ...fields}, 'narrative');
+    if (_int(json, 'schemaVersion', 'narrative') != 1) {
+      throw const FormatException('不支持的人物塑造响应版本');
+    }
+    return AiNarrativeDraft(
+      values: {for (final key in fields) key: _string(json, key, 'narrative')},
+    );
+  }
+
+  static const empty = AiNarrativeDraft(values: {});
+}
+
+class AiCharacterAssembly {
+  static Character toCharacter({
+    required AiCharacterBuildRequest request,
+    required AiBuildPlan plan,
+    required AiMechanicsDraft mechanics,
+    required AiDerivedDraft derived,
+    required AiNarrativeDraft narrative,
+  }) {
+    final mechanicalErrors = mechanics.validate(request.abilitySpec);
+    final derivedErrors = derived.validate(mechanics);
+    final planErrors = plan.validate(request.totalLevel);
+    final errors = [...planErrors, ...mechanicalErrors, ...derivedErrors];
+    if (errors.isNotEmpty) throw AiDraftValidationException(errors);
+
+    String appearance(String key) {
+      if (request.roleplay.omit) return '';
+      return request.roleplay.appearanceAiDecides
+          ? (narrative.values[key] ?? '')
+          : request.roleplay.appearanceValue(key);
+    }
+
+    String roleplay(String key) {
+      if (request.roleplay.omit) return '';
+      return request.roleplay.narrativeAiDecides
+          ? (narrative.values[key] ?? '')
+          : request.roleplay.narrativeValue(key);
+    }
+
+    final generatedName =
+        request.requirements.mode == AiBuildRequirementMode.exactChoices
+        ? request.requirements.characterName.trim()
+        : plan.characterName.trim();
+    final generatedAlignment =
+        request.requirements.mode == AiBuildRequirementMode.exactChoices
+        ? request.requirements.alignment.trim()
+        : plan.alignment.trim();
+    if (generatedName.isEmpty) {
+      throw const AiDraftValidationException(['角色姓名不能为空']);
+    }
+
+    final ability = [
+      mechanics.specialAbilities.trim(),
+      derived.specialAbilityNumericNotes.trim(),
+    ].where((value) => value.isNotEmpty).join('\n\n');
+    final groupsByLevel = {
+      for (final group in mechanics.spellGroups) group.level: group,
+    };
+    final spellGroups = List.generate(10, (level) {
+      final defaultGroup = SpellLevelGroup.initDefault(level);
+      final chosen = groupsByLevel[level]?.spells ?? const <Spell>[];
+      return SpellLevelGroup(
+        level: level,
+        totalSlots: derived.spellSlots[level] ?? 0,
+        remainSlots: derived.spellSlots[level] ?? 0,
+        spells: [
+          ...chosen,
+          ...List.generate(
+            defaultGroup.spells.length - chosen.length,
+            (_) => Spell(),
+          ),
+        ],
+      );
+    });
+    final weapons = List.generate(mechanics.weaponNames.length, (index) {
+      final values = derived.weapons[index];
+      return Weapon(
+        name: mechanics.weaponNames[index],
+        attackBonus: values.attackBonus,
+        damage: values.damage,
+      );
+    });
+
+    return Character(
+      profile: Profile(
+        characterName: generatedName,
+        playerName: '',
+        race: plan.raceAndSubrace,
+        classAndLevel: plan.classAndLevel,
+        background: plan.background,
+        alignment: generatedAlignment,
+        experiencePoints: derived.experiencePoints,
+        inspiration: '',
+        proficiencyBonus: 2 + ((request.totalLevel - 1) ~/ 4),
+        passivePerception: derived.passivePerception,
+        age: appearance('age'),
+        height: appearance('height'),
+        weight: appearance('weight'),
+        eyes: appearance('eyes'),
+        skin: appearance('skin'),
+        hair: appearance('hair'),
+        portraitBase64: '',
+      ),
+      attributes: Attributes(
+        strength: mechanics.abilities.finalScores.strength,
+        dexterity: mechanics.abilities.finalScores.dexterity,
+        constitution: mechanics.abilities.finalScores.constitution,
+        intelligence: mechanics.abilities.finalScores.intelligence,
+        wisdom: mechanics.abilities.finalScores.wisdom,
+        charisma: mechanics.abilities.finalScores.charisma,
+      ),
+      combat: CombatStats(
+        armorClass: derived.armorClass,
+        initiative: derived.initiative,
+        speed: derived.speed,
+        hitPointsMax: derived.hitPointsMax,
+        hitPointsCurrent: derived.hitPointsMax,
+        hitPointsTemp: 0,
+        hitDiceTotal: derived.hitDiceTotal,
+        hitDiceCurrent: derived.hitDiceTotal,
+        attacksAndSpellcastingNotes: mechanics.attacksAndSpellcastingNotes,
+        ability: ability,
+      ),
+      proficiencies: mechanics.proficiencies,
+      roleplay: Roleplay(
+        personalityTraits: roleplay('personalityTraits'),
+        ideals: roleplay('ideals'),
+        bonds: roleplay('bonds'),
+        flaws: roleplay('flaws'),
+        characterBackstory: roleplay('characterBackstory'),
+        alliesAndOrganizations: roleplay('alliesAndOrganizations'),
+        additionalFeaturesAndTraits: roleplay('additionalFeaturesAndTraits'),
+        treasure: roleplay('treasure'),
+        characterExperience: roleplay('characterExperience'),
+        featuresAndTraits: '',
+      ),
+      spellbook: Spellbook(
+        spellcastingClass: mechanics.spellcastingClass,
+        spellcastingAbility: mechanics.spellcastingAbility,
+        spellSaveDC: derived.spellSaveDC,
+        spellAttackBonus: derived.spellAttackBonus,
+        allSpells: spellGroups,
+      ),
+      weapons: weapons.isEmpty ? [Weapon(), Weapon(), Weapon()] : weapons,
+      inventory: mechanics.inventory,
+    );
+  }
+}
+
+bool needsNarrativeStage(AiCharacterBuildRequest request) {
+  if (request.roleplay.omit) return false;
+  return request.roleplay.appearanceAiDecides ||
+      request.roleplay.narrativeAiDecides;
+}
+
+AiNarrativeScope narrativeScopeFor(AiRoleplayInput input) {
+  if (input.omit || (!input.appearanceAiDecides && !input.narrativeAiDecides)) {
+    throw ArgumentError('没有需要 AI 生成的人物塑造字段');
+  }
+  if (input.appearanceAiDecides && input.narrativeAiDecides) {
+    return AiNarrativeScope.all;
+  }
+  return input.appearanceAiDecides
+      ? AiNarrativeScope.appearance
+      : AiNarrativeScope.personalityAndBackground;
+}
+
+Map<String, int> _scoresJson(AbilityScores scores) => {
+  'strength': scores.strength,
+  'dexterity': scores.dexterity,
+  'constitution': scores.constitution,
+  'intelligence': scores.intelligence,
+  'wisdom': scores.wisdom,
+  'charisma': scores.charisma,
+};
+
+Map<String, dynamic> _proficienciesJson(Proficiencies value) => {
+  'strengthSave': value.strengthSave,
+  'dexteritySave': value.dexteritySave,
+  'constitutionSave': value.constitutionSave,
+  'intelligenceSave': value.intelligenceSave,
+  'wisdomSave': value.wisdomSave,
+  'charismaSave': value.charismaSave,
+  'athletics': value.athletics,
+  'acrobatics': value.acrobatics,
+  'sleightOfHand': value.sleightOfHand,
+  'stealth': value.stealth,
+  'arcana': value.arcana,
+  'history': value.history,
+  'investigation': value.investigation,
+  'nature': value.nature,
+  'religion': value.religion,
+  'animalHandling': value.animalHandling,
+  'insight': value.insight,
+  'medicine': value.medicine,
+  'perception': value.perception,
+  'survival': value.survival,
+  'deception': value.deception,
+  'intimidation': value.intimidation,
+  'performance': value.performance,
+  'persuasion': value.persuasion,
+  'otherProficienciesAndLanguages': value.otherProficienciesAndLanguages,
+};
