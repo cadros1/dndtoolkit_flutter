@@ -93,6 +93,13 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   String? _formError;
   List<AbilityRollGroup>? _rollGroups;
   int? _selectedRollIndex;
+  AiCharacterBuildRequest? _activeRequest;
+  AiBuildPlan? _confirmedPlan;
+  AiMechanicsDraft? _mechanicsDraft;
+  AiDerivedDraft? _derivedDraft;
+  AiNarrativeDraft? _narrativeDraft;
+  AiGenerationStage? _activeStage;
+  AiGenerationStage? _failedStage;
 
   @override
   void initState() {
@@ -358,18 +365,27 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
 
   Future<void> _generate() async {
     setState(() => _formError = null);
-    if (!_formKey.currentState!.validate()) {
-      setState(() => _formError = '请修正标出的建卡信息');
-      return;
-    }
     AiCharacterBuildRequest request;
-    try {
-      request = _buildRequest();
-      final errors = request.validate();
-      if (errors.isNotEmpty) throw FormatException(errors.join('；'));
-    } on FormatException catch (error) {
-      setState(() => _formError = error.message.toString());
-      return;
+    if (_confirmedPlan == null) {
+      if (!_formKey.currentState!.validate()) {
+        setState(() => _formError = '请修正标出的建卡信息');
+        return;
+      }
+      try {
+        request = _buildRequest();
+        final errors = request.validate();
+        if (errors.isNotEmpty) throw FormatException(errors.join('；'));
+      } on FormatException catch (error) {
+        setState(() => _formError = error.message.toString());
+        return;
+      }
+      _activeRequest = request;
+      _mechanicsDraft = null;
+      _derivedDraft = null;
+      _narrativeDraft = null;
+      _failedStage = null;
+    } else {
+      request = _activeRequest!;
     }
 
     final config = _configs
@@ -396,38 +412,146 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
     }
     setState(() => _generating = true);
     try {
-      final result = await widget.service.generate(config, apiKey, request);
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => PopScope(
-          canPop: false,
-          child: AlertDialog(
-            title: const Text('确认六维加点策略'),
-            content: SelectableText(formatAbilityStrategy(result.abilities)),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('确认并进入编辑器'),
-              ),
-            ],
+      var plan = _confirmedPlan;
+      if (plan == null) {
+        _setActiveStage(AiGenerationStage.plan);
+        final generatedPlan = await widget.service.generateBuildPlan(
+          config,
+          apiKey,
+          request,
+        );
+        if (!mounted) return;
+        plan = await showDialog<AiBuildPlan>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => _BuildPlanDialog(
+            plan: generatedPlan,
+            totalLevel: request.totalLevel,
+            editsGeneratedIdentity:
+                request.requirements.mode ==
+                AiBuildRequirementMode.fromDescription,
           ),
-        ),
+        );
+        if (plan == null || !mounted) {
+          setState(() => _activeStage = null);
+          return;
+        }
+        setState(() {
+          _confirmedPlan = plan;
+          _failedStage = null;
+        });
+      }
+      await _continueGeneration(config, apiKey, request, plan);
+    } on Exception catch (error) {
+      if (mounted) {
+        setState(() {
+          _failedStage = _activeStage;
+          _formError = _friendlyError(error);
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _generating = false;
+          _activeStage = null;
+        });
+      }
+    }
+  }
+
+  void _setActiveStage(AiGenerationStage stage) {
+    if (mounted) {
+      setState(() {
+        _activeStage = stage;
+        _failedStage = null;
+        _formError = null;
+      });
+    }
+  }
+
+  Future<void> _continueGeneration(
+    AiServiceConfig config,
+    String apiKey,
+    AiCharacterBuildRequest request,
+    AiBuildPlan plan,
+  ) async {
+    var mechanics = _mechanicsDraft;
+    if (mechanics == null) {
+      _setActiveStage(AiGenerationStage.mechanics);
+      mechanics = await widget.service.generateMechanics(
+        config,
+        apiKey,
+        request,
+        plan,
       );
       if (!mounted) return;
-      final saved = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CharacterEditPage(character: result.character),
-        ),
-      );
-      if (saved == true && mounted) _popWithoutConfirmation(true);
-    } on Exception catch (error) {
-      if (mounted) setState(() => _formError = _friendlyError(error));
-    } finally {
-      if (mounted) setState(() => _generating = false);
+      setState(() => _mechanicsDraft = mechanics);
     }
+
+    var derived = _derivedDraft;
+    if (derived == null) {
+      _setActiveStage(AiGenerationStage.derived);
+      derived = await widget.service.generateDerived(
+        config,
+        apiKey,
+        request,
+        plan,
+        mechanics,
+      );
+      if (!mounted) return;
+      setState(() => _derivedDraft = derived);
+    }
+
+    var narrative = _narrativeDraft;
+    if (narrative == null) {
+      if (needsNarrativeStage(request)) {
+        _setActiveStage(AiGenerationStage.narrative);
+        narrative = await widget.service.generateNarrative(
+          config,
+          apiKey,
+          request,
+          plan,
+          mechanics,
+        );
+      } else {
+        narrative = AiNarrativeDraft.empty;
+      }
+      if (!mounted) return;
+      setState(() => _narrativeDraft = narrative);
+    }
+
+    final character = AiCharacterAssembly.toCharacter(
+      request: request,
+      plan: plan,
+      mechanics: mechanics,
+      derived: derived,
+      narrative: narrative,
+    );
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('使用前请确认'),
+          content: const Text('AI生成的角色卡可能包含错误，在使用之前请务必进行人工检查，并与你的DM沟通。'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('我已知晓'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CharacterEditPage(character: character),
+      ),
+    );
+    if (saved == true && mounted) _popWithoutConfirmation(true);
   }
 
   Widget _configSection() {
@@ -811,10 +935,52 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
 
   Widget _submitSection() {
     final cs = Theme.of(context).colorScheme;
+    final plan = _confirmedPlan;
+    final currentStage = _activeStage ?? _failedStage;
     return AppPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (plan != null) ...[
+            Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: cs.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '已确认构筑方案',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${plan.classAndLevel} · ${plan.raceAndSubrace} · ${plan.background}',
+            ),
+            Text('战斗：${plan.combatRole}'),
+            Text('冒险：${plan.adventureRole}'),
+            const SizedBox(height: 16),
+          ],
+          if (currentStage != null) ...[
+            Semantics(
+              label:
+                  'AI 建卡第 ${currentStage.number} 阶段，共 4 阶段：${currentStage.label}',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    _generating
+                        ? '正在进行第 ${currentStage.number}/4 阶段：${currentStage.label}'
+                        : '第 ${currentStage.number}/4 阶段失败：${currentStage.label}',
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(value: currentStage.number / 4),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_formError != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -829,7 +995,9 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
             ),
             const SizedBox(height: 12),
           ],
-          const Text('结构校验失败时会自动追加一次修复请求，可能增加调用费用。AI 结果不会自动保存。'),
+          const Text(
+            '一次建卡通常产生 3–4 次请求；每个阶段校验失败时会自动追加一次修复请求，可能增加调用费用。AI 结果不会自动保存。',
+          ),
           const SizedBox(height: 16),
           if (_generating) ...[
             const LinearProgressIndicator(),
@@ -843,9 +1011,21 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
             FilledButton.icon(
               onPressed: _configs.isEmpty ? _openConfigs : _generate,
               icon: Icon(
-                _configs.isEmpty ? Icons.settings_outlined : Icons.auto_awesome,
+                _configs.isEmpty
+                    ? Icons.settings_outlined
+                    : _failedStage != null
+                    ? Icons.refresh
+                    : Icons.auto_awesome,
               ),
-              label: Text(_configs.isEmpty ? '先配置AI服务' : '生成角色草稿'),
+              label: Text(
+                _configs.isEmpty
+                    ? '先配置AI服务'
+                    : _failedStage != null
+                    ? '从${_failedStage!.label}重试'
+                    : _confirmedPlan != null && _narrativeDraft != null
+                    ? '重新进入角色草稿'
+                    : '生成角色草稿',
+              ),
             ),
         ],
       ),
@@ -995,6 +1175,343 @@ class _RoleplayGroupEditor extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _BuildPlanDialog extends StatefulWidget {
+  const _BuildPlanDialog({
+    required this.plan,
+    required this.totalLevel,
+    required this.editsGeneratedIdentity,
+  });
+
+  final AiBuildPlan plan;
+  final int totalLevel;
+  final bool editsGeneratedIdentity;
+
+  @override
+  State<_BuildPlanDialog> createState() => _BuildPlanDialogState();
+}
+
+class _BuildPlanDialogState extends State<_BuildPlanDialog> {
+  late final List<_BuildPlanClassControllers> _classes;
+  late final TextEditingController _characterName;
+  late final TextEditingController _alignment;
+  late final TextEditingController _race;
+  late final TextEditingController _background;
+  late final TextEditingController _combatRole;
+  late final TextEditingController _adventureRole;
+  late final TextEditingController _synergy;
+  late final TextEditingController _warnings;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _classes = widget.plan.classes
+        .map(_BuildPlanClassControllers.fromPlan)
+        .toList(growable: true);
+    _characterName = TextEditingController(text: widget.plan.characterName);
+    _alignment = TextEditingController(text: widget.plan.alignment);
+    _race = TextEditingController(text: widget.plan.raceAndSubrace);
+    _background = TextEditingController(text: widget.plan.background);
+    _combatRole = TextEditingController(text: widget.plan.combatRole);
+    _adventureRole = TextEditingController(text: widget.plan.adventureRole);
+    _synergy = TextEditingController(text: widget.plan.synergy);
+    _warnings = TextEditingController(text: widget.plan.warnings);
+  }
+
+  @override
+  void dispose() {
+    for (final item in _classes) {
+      item.dispose();
+    }
+    _characterName.dispose();
+    _alignment.dispose();
+    _race.dispose();
+    _background.dispose();
+    _combatRole.dispose();
+    _adventureRole.dispose();
+    _synergy.dispose();
+    _warnings.dispose();
+    super.dispose();
+  }
+
+  void _addClass() {
+    if (_classes.length >= 4) return;
+    setState(() {
+      _classes.add(_BuildPlanClassControllers.empty());
+      _error = null;
+    });
+  }
+
+  void _removeClass(int index) {
+    if (_classes.length <= 1) return;
+    setState(() {
+      _classes.removeAt(index).dispose();
+      _error = null;
+    });
+  }
+
+  void _confirm() {
+    final classes = <AiBuildPlanClass>[];
+    for (final item in _classes) {
+      final level = int.tryParse(item.level.text.trim());
+      if (item.name.text.trim().isEmpty || level == null) {
+        setState(() => _error = '请填写完整、有效的职业名称和等级');
+        return;
+      }
+      classes.add(
+        AiBuildPlanClass(
+          name: item.name.text.trim(),
+          level: level,
+          subclass: item.subclass.text.trim(),
+        ),
+      );
+    }
+    final plan = AiBuildPlan(
+      characterName: _characterName.text.trim(),
+      alignment: _alignment.text.trim(),
+      classes: classes,
+      raceAndSubrace: _race.text.trim(),
+      background: _background.text.trim(),
+      combatRole: _combatRole.text.trim(),
+      adventureRole: _adventureRole.text.trim(),
+      synergy: _synergy.text.trim(),
+      warnings: _warnings.text.trim(),
+    );
+    final errors = plan.validate(
+      widget.totalLevel,
+      requireIdentity: widget.editsGeneratedIdentity,
+    );
+    if (errors.isNotEmpty) {
+      setState(() => _error = errors.join('；'));
+      return;
+    }
+    Navigator.pop(context, plan);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('确认并修改构筑方案'),
+      content: SizedBox(
+        width: 720,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('请检查以下内容。你在这里的修改会完全覆盖 AI 的原方案，并作为后续三个阶段的硬约束。'),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: '${widget.totalLevel}',
+                readOnly: true,
+                enabled: false,
+                decoration: const InputDecoration(labelText: '角色总等级'),
+              ),
+              const SizedBox(height: 16),
+              if (widget.editsGeneratedIdentity) ...[
+                _planField(
+                  _characterName,
+                  '角色姓名 *',
+                  fieldKey: const ValueKey('confirmed-character-name-field'),
+                ),
+                const SizedBox(height: 12),
+                _planField(
+                  _alignment,
+                  '阵营 *',
+                  fieldKey: const ValueKey('confirmed-alignment-field'),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '职业组成',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _classes.length < 4 ? _addClass : null,
+                    icon: const Icon(Icons.add),
+                    label: const Text('添加兼职'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (var index = 0; index < _classes.length; index++) ...[
+                _BuildPlanClassEditor(
+                  index: index,
+                  controllers: _classes[index],
+                  canRemove: _classes.length > 1,
+                  onRemove: () => _removeClass(index),
+                ),
+                if (index < _classes.length - 1) const SizedBox(height: 12),
+              ],
+              const SizedBox(height: 16),
+              _planField(
+                _race,
+                '种族与亚种 *',
+                fieldKey: const ValueKey('confirmed-race-field'),
+              ),
+              const SizedBox(height: 12),
+              _planField(_background, '背景 *'),
+              const SizedBox(height: 12),
+              _planField(_combatRole, '战斗定位 *', lines: 2),
+              const SizedBox(height: 12),
+              _planField(_adventureRole, '冒险定位 *', lines: 2),
+              const SizedBox(height: 12),
+              _planField(_synergy, '构筑思路', lines: 2),
+              const SizedBox(height: 12),
+              _planField(_warnings, '需要重点复核的事项', lines: 2),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(_error!, style: TextStyle(color: cs.error)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('返回修改要求'),
+        ),
+        FilledButton(onPressed: _confirm, child: const Text('确认并继续生成')),
+      ],
+    );
+  }
+
+  Widget _planField(
+    TextEditingController controller,
+    String label, {
+    int lines = 1,
+    Key? fieldKey,
+  }) {
+    return TextFormField(
+      key: fieldKey,
+      controller: controller,
+      minLines: lines,
+      maxLines: lines == 1 ? 1 : 4,
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+}
+
+class _BuildPlanClassControllers {
+  _BuildPlanClassControllers({
+    required this.name,
+    required this.level,
+    required this.subclass,
+  });
+
+  factory _BuildPlanClassControllers.fromPlan(AiBuildPlanClass value) {
+    return _BuildPlanClassControllers(
+      name: TextEditingController(text: value.name),
+      level: TextEditingController(text: '${value.level}'),
+      subclass: TextEditingController(text: value.subclass),
+    );
+  }
+
+  factory _BuildPlanClassControllers.empty() {
+    return _BuildPlanClassControllers(
+      name: TextEditingController(),
+      level: TextEditingController(text: '1'),
+      subclass: TextEditingController(),
+    );
+  }
+
+  final TextEditingController name;
+  final TextEditingController level;
+  final TextEditingController subclass;
+
+  void dispose() {
+    name.dispose();
+    level.dispose();
+    subclass.dispose();
+  }
+}
+
+class _BuildPlanClassEditor extends StatelessWidget {
+  const _BuildPlanClassEditor({
+    required this.index,
+    required this.controllers,
+    required this.canRemove,
+    required this.onRemove,
+  });
+
+  final int index;
+  final _BuildPlanClassControllers controllers;
+  final bool canRemove;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fields = [
+          Expanded(
+            flex: 3,
+            child: TextFormField(
+              controller: controllers.name,
+              decoration: InputDecoration(labelText: '职业 ${index + 1} *'),
+            ),
+          ),
+          Expanded(
+            child: TextFormField(
+              controller: controllers.level,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: '等级 *'),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: TextFormField(
+              controller: controllers.subclass,
+              decoration: const InputDecoration(labelText: '子职（如已获得）'),
+            ),
+          ),
+        ];
+        final remove = IconButton(
+          onPressed: canRemove ? onRemove : null,
+          tooltip: '移除此职业',
+          icon: const Icon(Icons.remove_circle_outline),
+        );
+        if (constraints.maxWidth < 560) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  fields[0],
+                  const SizedBox(width: 8),
+                  fields[1],
+                  remove,
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(children: [fields[2]]),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            fields[0],
+            const SizedBox(width: 8),
+            fields[1],
+            const SizedBox(width: 8),
+            fields[2],
+            remove,
+          ],
+        );
+      },
     );
   }
 }
