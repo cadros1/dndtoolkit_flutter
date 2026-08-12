@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:dndtoolkit_flutter/models/ai_character_models.dart';
@@ -25,31 +24,7 @@ void main() {
       ).validate(),
       containsAll(['请填写角色描述', '请填写玩法偏好']),
     );
-    final prompt = const AiBuildRequirements.fromDescription(
-      characterDescription: '来自荒野的远程支援者',
-      gameplayPreference: '保持距离并帮助队友',
-    ).toJson();
-    expect(
-      (prompt['characterSelection']! as Map<String, dynamic>)['mode'],
-      'generate_from_description',
-    );
-    expect(
-      (prompt['gameplayPreference']! as Map<String, dynamic>)['applyTo'],
-      containsAll(['equipment', 'spells', 'classFeatures', 'otherAbilities']),
-    );
     expect(_exactRequirements.validate(), isEmpty);
-    final exactSelection =
-        _exactRequirements.toJson()['characterSelection']!
-            as Map<String, dynamic>;
-    expect(exactSelection['mode'], 'use_exact_choices');
-    expect(
-      (exactSelection['choices']! as Map<String, dynamic>)['classAndSubclass'],
-      '游侠',
-    );
-    expect(
-      (exactSelection['choices']! as Map<String, dynamic>)['characterName'],
-      '莱拉',
-    );
     expect(
       const AiBuildRequirements.exactChoices(
         characterName: '',
@@ -178,11 +153,6 @@ void main() {
         ),
         abilitySpec: const AiAbilitySpec.standard(),
       );
-      expect(
-        jsonEncode(exactRequest.toPromptJson()),
-        isNot(contains('characterExperience')),
-      );
-
       final character = AiCharacterDraft.fromJson(
         _validDraftJson(),
       ).toCharacter(exactRequest);
@@ -223,6 +193,123 @@ void main() {
     expect(draft.spellbook.allSpells[0].spells[0].name, '法师之手');
     expect(draft.spellbook.allSpells[0].spells[2].name, isEmpty);
     expect(draft.spellbook.allSpells[1].spells, hasLength(12));
+  });
+
+  test('四阶段草稿由本地计算最终属性并按字段职责组装角色', () {
+    const plan = AiBuildPlan(
+      classes: [AiBuildPlanClass(name: '游侠', level: 4, subclass: '猎人')],
+      raceAndSubrace: '木精灵',
+      background: '侍僧',
+      combatRole: '远程物理输出与支援',
+      adventureRole: '察觉与荒野探索',
+      synergy: '敏捷与感知同时服务于两个定位',
+      warnings: '',
+    );
+    final request = AiCharacterBuildRequest(
+      configId: 'config',
+      totalLevel: 4,
+      requirements: _exactRequirements,
+      roleplay: _omittedRoleplay,
+      abilitySpec: const AiAbilitySpec.standard(),
+    );
+    final mechanics = AiMechanicsDraft.fromJson(_validMechanicsJson());
+    final derived = AiDerivedDraft.fromJson(_validDerivedJson());
+
+    expect(mechanics.validate(request.abilitySpec), isEmpty);
+    expect(mechanics.abilities.finalScores.dexterity, 18);
+    final character = AiCharacterAssembly.toCharacter(
+      request: request,
+      plan: plan,
+      mechanics: mechanics,
+      derived: derived,
+      narrative: AiNarrativeDraft.empty,
+    );
+
+    expect(character.profile.classAndLevel, '游侠（猎人） 4');
+    expect(character.attributes.dexterity, 18);
+    expect(character.combat.ability, contains('察觉专精'));
+    expect(character.combat.ability, contains('资源次数：4 次'));
+    expect(character.combat.attacksAndSpellcastingNotes, '长弓攻击可配合猎人印记。');
+    expect(character.combat.hitPointsCurrent, character.combat.hitPointsMax);
+    expect(character.combat.hitDiceCurrent, character.combat.hitDiceTotal);
+    expect(character.spellbook.allSpells[1].remainSlots, 3);
+    expect(character.roleplay.featuresAndTraits, isEmpty);
+  });
+
+  test('衍生数值武器数量必须与机械选择一致', () {
+    final mechanics = AiMechanicsDraft.fromJson(_validMechanicsJson());
+    final json = _validDerivedJson();
+    json['weapons'] = <dynamic>[];
+    final derived = AiDerivedDraft.fromJson(json);
+    expect(derived.validate(mechanics), contains('武器衍生数值必须与机械选择中的武器数量一致'));
+  });
+
+  test('衍生数值会校验组成加法与最终字段', () {
+    final mechanics = AiMechanicsDraft.fromJson(_validMechanicsJson());
+    final json = _validDerivedJson();
+    final checks = json['calculationChecks']! as List<dynamic>;
+    (checks.first as Map<String, dynamic>)['finalValue'] = 15;
+    final derived = AiDerivedDraft.fromJson(json);
+    expect(
+      derived.validate(mechanics),
+      containsAll([
+        'passivePerception 的数值组成加法不一致',
+        'passivePerception 的最终值与角色数值不一致',
+      ]),
+    );
+  });
+
+  test('明确输入且无需人物塑造时跳过第四阶段', () {
+    final request = AiCharacterBuildRequest(
+      configId: 'config',
+      totalLevel: 1,
+      requirements: _exactRequirements,
+      roleplay: _omittedRoleplay,
+      abilitySpec: const AiAbilitySpec.standard(),
+    );
+    expect(needsNarrativeStage(request), isFalse);
+  });
+
+  test('自由生成时两组人物塑造都不交给 AI 也跳过第四阶段', () {
+    final request = AiCharacterBuildRequest(
+      configId: 'config',
+      totalLevel: 1,
+      requirements: const AiBuildRequirements.fromDescription(
+        characterDescription: '可靠的前排战士',
+        gameplayPreference: '保护同伴',
+      ),
+      roleplay: const AiRoleplayInput(
+        omit: false,
+        appearanceAiDecides: false,
+        appearanceTendency: '',
+        appearanceValues: {},
+        narrativeAiDecides: false,
+        narrativeTendency: '',
+        narrativeValues: {},
+      ),
+      abilitySpec: const AiAbilitySpec.standard(),
+    );
+
+    expect(needsNarrativeStage(request), isFalse);
+  });
+
+  test('人物塑造响应只接受当前生成范围的字段', () {
+    final appearance = {
+      'schemaVersion': 1,
+      for (final key in aiAppearanceKeys) key: '外貌',
+    };
+    expect(
+      AiNarrativeDraft.fromJson(
+        appearance,
+        AiNarrativeScope.appearance,
+      ).values.keys,
+      containsAll(aiAppearanceKeys),
+    );
+    appearance['personalityTraits'] = '不应出现';
+    expect(
+      () => AiNarrativeDraft.fromJson(appearance, AiNarrativeScope.appearance),
+      throwsFormatException,
+    );
   });
 }
 
@@ -395,4 +482,126 @@ const _proficiencyKeys = <String>{
   'intimidation',
   'performance',
   'persuasion',
+};
+
+Map<String, dynamic> _validMechanicsJson() => {
+  'schemaVersion': 1,
+  'abilities': {
+    'baseAbilities': {
+      'strength': 13,
+      'dexterity': 15,
+      'constitution': 14,
+      'intelligence': 10,
+      'wisdom': 12,
+      'charisma': 8,
+    },
+    'racialBonuses': {
+      'strength': 0,
+      'dexterity': 2,
+      'constitution': 0,
+      'intelligence': 0,
+      'wisdom': 1,
+      'charisma': 0,
+    },
+    'advancementAdjustments': {
+      'strength': 0,
+      'dexterity': 1,
+      'constitution': 0,
+      'intelligence': 0,
+      'wisdom': 1,
+      'charisma': 0,
+    },
+    'advancementChoices': '游侠 4 级：敏捷 +1、感知 +1',
+  },
+  'proficiencies': {
+    for (final key in _proficiencyKeys) key: false,
+    'perception': true,
+    'otherProficienciesAndLanguages': '轻甲、中甲、盾牌；通用语、精灵语',
+  },
+  'specialAbilities': '黑暗视觉；精类血统；察觉专精；战斗风格：箭术',
+  'attacksAndSpellcastingNotes': '长弓攻击可配合猎人印记。',
+  'spellcasting': {
+    'class': '游侠',
+    'ability': '感知',
+    'groups': [
+      {
+        'level': 1,
+        'spells': [
+          {'name': '猎人印记', 'isPrepared': false},
+        ],
+      },
+    ],
+  },
+  'weapons': [
+    {'name': '长弓'},
+  ],
+  'inventory': {
+    'cp': 0,
+    'sp': 0,
+    'ep': 0,
+    'gp': 10,
+    'pp': 0,
+    'equipmentText': '鳞甲、长弓、探索套组',
+  },
+};
+
+Map<String, dynamic> _validDerivedJson() => {
+  'schemaVersion': 1,
+  'experiencePoints': 0,
+  'passivePerception': 16,
+  'armorClass': 16,
+  'initiative': 4,
+  'speed': '35 尺',
+  'hitPointsMax': 36,
+  'hitDiceTotal': '4d10',
+  'spellSaveDC': 12,
+  'spellAttackBonus': 4,
+  'spellSlots': [
+    {'level': 1, 'totalSlots': 3},
+  ],
+  'weapons': [
+    {'attackBonus': 8, 'damage': '1d8+4 穿刺'},
+  ],
+  'specialAbilityNumericNotes': '资源次数：4 次',
+  'calculationChecks': [
+    {
+      'field': 'passivePerception',
+      'base': 10,
+      'adjustments': [3, 3],
+      'finalValue': 16,
+    },
+    {
+      'field': 'armorClass',
+      'base': 14,
+      'adjustments': [2],
+      'finalValue': 16,
+    },
+    {'field': 'initiative', 'base': 4, 'adjustments': [], 'finalValue': 4},
+    {
+      'field': 'hitPointsMax',
+      'base': 10,
+      'adjustments': [26],
+      'finalValue': 36,
+    },
+    {
+      'field': 'spellSaveDC',
+      'base': 8,
+      'adjustments': [2, 2],
+      'finalValue': 12,
+    },
+    {
+      'field': 'spellAttackBonus',
+      'base': 2,
+      'adjustments': [2],
+      'finalValue': 4,
+    },
+    {'field': 'spellSlot:1', 'base': 3, 'adjustments': [], 'finalValue': 3},
+    {
+      'field': 'weaponAttackBonus:0',
+      'base': 4,
+      'adjustments': [2, 2],
+      'finalValue': 8,
+    },
+  ],
+  'valueExplanations': ['护甲等级：鳞甲 14 + 敏捷上限 2 = 16'],
 };

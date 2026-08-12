@@ -223,7 +223,7 @@ void main() {
     expect(find.text('AI 建卡'), findsNothing);
   });
 
-  testWidgets('六维策略弹窗仅提供确认进入编辑器', (tester) async {
+  testWidgets('构筑方案确认后自动完成其余阶段并显示人工检查提示', (tester) async {
     SharedPreferences.setMockInitialValues({
       'ai_character_disclosure_accepted_v1': true,
     });
@@ -240,12 +240,10 @@ void main() {
       ),
       apiKey: 'fake-key',
     );
+    final service = _ImmediateAiService();
     await tester.pumpWidget(
       MaterialApp(
-        home: AiCharacterCreationPage(
-          repository: repository,
-          service: _ImmediateAiService(),
-        ),
+        home: AiCharacterCreationPage(repository: repository, service: service),
       ),
     );
     await tester.pumpAndSettle();
@@ -271,21 +269,180 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(submit);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await _pumpUntilFound(tester, find.text('确认并修改构筑方案'));
 
-    expect(find.text('确认六维加点策略'), findsOneWidget);
+    expect(find.text('确认并修改构筑方案'), findsOneWidget);
+    expect(find.text('角色总等级'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('confirmed-character-name-field')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('confirmed-alignment-field')),
+      findsOneWidget,
+    );
+    expect(find.text('职业 1 *'), findsOneWidget);
+    expect(find.text('战斗定位 *'), findsOneWidget);
+    expect(find.text('冒险定位 *'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('confirmed-race-field')),
+      '高等精灵',
+    );
+    await tester.tap(find.text('确认并继续生成'));
+    await tester.pump();
+    await _pumpUntilFound(tester, find.text('使用前请确认'));
+
+    expect(find.text('使用前请确认'), findsOneWidget);
+    expect(
+      find.text('AI生成的角色卡可能包含错误，在使用之前请务必进行人工检查，并与你的DM沟通。'),
+      findsOneWidget,
+    );
     expect(find.text('返回修改'), findsNothing);
-    expect(find.text('确认并进入编辑器'), findsOneWidget);
+    expect(find.text('我已知晓'), findsOneWidget);
+    expect(service.lastMechanicsPlan?.raceAndSubrace, '高等精灵');
+  });
+
+  testWidgets('衍生数值失败后从该阶段重试且不重复机械选择', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'ai_character_disclosure_accepted_v1': true,
+    });
+    final repository = AiConfigRepository(secretStore: _MemorySecretStore());
+    await repository.saveConfig(
+      const AiServiceConfig(
+        id: 'config',
+        name: '测试配置',
+        provider: AiProviderKind.deepSeek,
+        baseUrl: AiServiceConfig.deepSeekBaseUrl,
+        model: 'deepseek-v4-flash',
+        thinkingEnabled: false,
+        reasoningEffort: 'high',
+      ),
+      apiKey: 'fake-key',
+    );
+    final service = _FailOnceDerivedAiService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiCharacterCreationPage(repository: repository, service: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final modeSwitch = find.byKey(
+      const ValueKey('generate-from-description-switch'),
+    );
+    await tester.ensureVisible(modeSwitch);
+    await tester.tap(modeSwitch);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('character-description-field')),
+      '自然施法者',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('gameplay-preference-field')),
+      '支援和探索',
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    final submit = find.text('生成角色草稿');
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pump();
+    await _pumpUntilFound(tester, find.text('确认并修改构筑方案'));
+    await tester.tap(find.text('确认并继续生成'));
+    await tester.pump();
+    await _pumpUntil(tester, () => service.derivedCalls == 1);
+    await tester.pumpAndSettle();
+
+    expect(service.mechanicsCalls, 1);
+    expect(service.derivedCalls, 1);
+
+    final retry = find.text('从计算衍生数值重试');
+    await _scrollUntilFound(tester, retry);
+    expect(retry, findsOneWidget);
+    await tester.ensureVisible(retry);
+    await tester.pumpAndSettle();
+    await tester.tap(retry);
+    await tester.pump();
+    await _pumpUntilFound(tester, find.text('使用前请确认'));
+    expect(find.text('使用前请确认'), findsOneWidget);
+    expect(service.mechanicsCalls, 1);
+    expect(service.derivedCalls, 2);
   });
 }
 
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int attempts = 30,
+}) async {
+  for (
+    var attempt = 0;
+    attempt < attempts && finder.evaluate().isEmpty;
+    attempt++
+  ) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  int attempts = 30,
+}) async {
+  for (var attempt = 0; attempt < attempts && !condition(); attempt++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+Future<void> _scrollUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int attempts = 20,
+}) async {
+  for (
+    var attempt = 0;
+    attempt < attempts && finder.evaluate().isEmpty;
+    attempt++
+  ) {
+    final scrollables = find.byType(Scrollable);
+    if (scrollables.evaluate().isNotEmpty) {
+      await tester.drag(scrollables.last, const Offset(0, -300));
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 class _ImmediateAiService extends AiCharacterService {
+  AiBuildPlan? lastMechanicsPlan;
+
   @override
-  Future<({Character character, AiAbilityBreakdown abilities})> generate(
+  Future<AiBuildPlan> generateBuildPlan(
     AiServiceConfig config,
     String apiKey,
     AiCharacterBuildRequest request,
   ) async {
+    return const AiBuildPlan(
+      characterName: '莱拉',
+      alignment: '中立善良',
+      classes: [AiBuildPlanClass(name: '德鲁伊', level: 1, subclass: '')],
+      raceAndSubrace: '木精灵',
+      background: '隐士',
+      combatRole: '远程支援与控制',
+      adventureRole: '察觉与荒野探索',
+      synergy: '感知同时服务于施法和探索',
+      warnings: '',
+    );
+  }
+
+  @override
+  Future<AiMechanicsDraft> generateMechanics(
+    AiServiceConfig config,
+    String apiKey,
+    AiCharacterBuildRequest request,
+    AiBuildPlan plan,
+  ) async {
+    lastMechanicsPlan = plan;
     const scores = AbilityScores(
       strength: 15,
       dexterity: 14,
@@ -302,15 +459,128 @@ class _ImmediateAiService extends AiCharacterService {
       wisdom: 0,
       charisma: 0,
     );
-    return (
-      character: Character(),
+    return AiMechanicsDraft(
       abilities: const AiAbilityBreakdown(
         base: scores,
         racialBonuses: zero,
         advancementAdjustments: zero,
         finalScores: scores,
       ),
+      advancementChoices: '',
+      proficiencies: Proficiencies(),
+      specialAbilities: '德鲁伊语',
+      attacksAndSpellcastingNotes: '',
+      spellcastingClass: '德鲁伊',
+      spellcastingAbility: '感知',
+      spellGroups: const [],
+      weaponNames: const [],
+      inventory: Inventory(),
     );
+  }
+
+  @override
+  Future<AiDerivedDraft> generateDerived(
+    AiServiceConfig config,
+    String apiKey,
+    AiCharacterBuildRequest request,
+    AiBuildPlan plan,
+    AiMechanicsDraft mechanics,
+  ) async {
+    return const AiDerivedDraft(
+      experiencePoints: 0,
+      passivePerception: 10,
+      armorClass: 12,
+      initiative: 2,
+      speed: '35 尺',
+      hitPointsMax: 10,
+      hitDiceTotal: '1d8',
+      spellSaveDC: 10,
+      spellAttackBonus: 2,
+      spellSlots: {},
+      weapons: [],
+      specialAbilityNumericNotes: '',
+      calculationChecks: [
+        AiDerivedCalculationCheck(
+          field: 'passivePerception',
+          base: 10,
+          adjustments: [],
+          finalValue: 10,
+        ),
+        AiDerivedCalculationCheck(
+          field: 'armorClass',
+          base: 10,
+          adjustments: [2],
+          finalValue: 12,
+        ),
+        AiDerivedCalculationCheck(
+          field: 'initiative',
+          base: 2,
+          adjustments: [],
+          finalValue: 2,
+        ),
+        AiDerivedCalculationCheck(
+          field: 'hitPointsMax',
+          base: 8,
+          adjustments: [2],
+          finalValue: 10,
+        ),
+        AiDerivedCalculationCheck(
+          field: 'spellSaveDC',
+          base: 8,
+          adjustments: [2],
+          finalValue: 10,
+        ),
+        AiDerivedCalculationCheck(
+          field: 'spellAttackBonus',
+          base: 2,
+          adjustments: [],
+          finalValue: 2,
+        ),
+      ],
+      valueExplanations: [],
+    );
+  }
+
+  @override
+  Future<AiNarrativeDraft> generateNarrative(
+    AiServiceConfig config,
+    String apiKey,
+    AiCharacterBuildRequest request,
+    AiBuildPlan plan,
+    AiMechanicsDraft mechanics,
+  ) async {
+    return const AiNarrativeDraft(values: {});
+  }
+}
+
+class _FailOnceDerivedAiService extends _ImmediateAiService {
+  int mechanicsCalls = 0;
+  int derivedCalls = 0;
+
+  @override
+  Future<AiMechanicsDraft> generateMechanics(
+    AiServiceConfig config,
+    String apiKey,
+    AiCharacterBuildRequest request,
+    AiBuildPlan plan,
+  ) {
+    mechanicsCalls++;
+    return super.generateMechanics(config, apiKey, request, plan);
+  }
+
+  @override
+  Future<AiDerivedDraft> generateDerived(
+    AiServiceConfig config,
+    String apiKey,
+    AiCharacterBuildRequest request,
+    AiBuildPlan plan,
+    AiMechanicsDraft mechanics,
+  ) {
+    derivedCalls++;
+    if (derivedCalls == 1) {
+      throw const AiServiceException('模拟衍生数值失败');
+    }
+    return super.generateDerived(config, apiKey, request, plan, mechanics);
   }
 }
 
