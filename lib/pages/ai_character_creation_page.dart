@@ -87,6 +87,8 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   bool _narrativeAiDecides = false;
   bool _loadingConfigs = true;
   bool _generating = false;
+  bool _allowPop = false;
+  bool _showingExitConfirmation = false;
   String? _formError;
   List<AbilityRollGroup>? _rollGroups;
   int? _selectedRollIndex;
@@ -179,8 +181,45 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
         }
       }
     } else if (mounted) {
-      Navigator.pop(context);
+      _popWithoutConfirmation();
     }
+  }
+
+  Future<void> _confirmExit() async {
+    if (_showingExitConfirmation) return;
+    _showingExitConfirmation = true;
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('退出 AI 建卡？'),
+        content: const Text('退出后，本页面的所有草稿都不会被保存。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('退出'),
+          ),
+        ],
+      ),
+    );
+    _showingExitConfirmation = false;
+    if (shouldExit != true || !mounted) return;
+    widget.service.cancelCurrentRequest();
+    _popWithoutConfirmation();
+  }
+
+  void _popWithoutConfirmation([bool? result]) {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context, result);
+    });
   }
 
   Future<void> _loadConfigs() async {
@@ -381,7 +420,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
           builder: (_) => CharacterEditPage(character: result.character),
         ),
       );
-      if (saved == true && mounted) Navigator.pop(context, true);
+      if (saved == true && mounted) _popWithoutConfirmation(true);
     } on Exception catch (error) {
       if (mounted) setState(() => _formError = _friendlyError(error));
     } finally {
@@ -814,13 +853,9 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_generating,
+      canPop: _allowPop,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _generating) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('请先取消正在进行的生成请求')));
-        }
+        if (!didPop) _confirmExit();
       },
       child: Scaffold(
         appBar: AppBar(title: const Text('AI 建卡')),
@@ -921,9 +956,9 @@ class _RoleplayGroupEditor extends StatelessWidget {
                   enabled: enabled,
                   minLines: 2,
                   maxLines: 5,
-                    decoration: InputDecoration(
-                      labelText: '你的想法',
-                      helperText: '描述你对角色$title的想法或偏好',
+                  decoration: InputDecoration(
+                    labelText: title,
+                    helperText: '描述你对角色$title的想法或偏好',
                   ),
                 )
               : Column(
