@@ -48,7 +48,7 @@ void main() {
     expect(find.text('人物塑造'), findsOneWidget);
   });
 
-  testWidgets('建卡要求默认显示四项确定选项和玩法偏好', (tester) async {
+  testWidgets('建卡要求默认显示角色姓名、四项确定选项和玩法偏好', (tester) async {
     SharedPreferences.setMockInitialValues({
       'ai_character_disclosure_accepted_v1': true,
     });
@@ -76,11 +76,19 @@ void main() {
     );
     expect(modeSwitch.value, isFalse);
     expect(find.text('角色描述 *'), findsNothing);
+    expect(find.text('角色姓名 *'), findsOneWidget);
     expect(find.text('职业 *'), findsOneWidget);
     expect(find.text('种族 *'), findsOneWidget);
     expect(find.text('背景 *'), findsOneWidget);
     expect(find.text('阵营 *'), findsOneWidget);
     expect(find.text('玩法偏好 *'), findsOneWidget);
+    final nameDecorator = tester.widget<InputDecorator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('characterName-choice-field')),
+        matching: find.byType(InputDecorator),
+      ),
+    );
+    expect(nameDecorator.decoration.helperText, isNull);
     final classDecorator = tester.widget<InputDecorator>(
       find.descendant(
         of: find.byKey(const ValueKey('classAndSubclass-choice-field')),
@@ -113,6 +121,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
+      find.byKey(const ValueKey('characterName-choice-field')),
+      '莱拉',
+    );
+    await tester.enterText(
       find.byKey(const ValueKey('classAndSubclass-choice-field')),
       '战士（奥法骑士）',
     );
@@ -127,6 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(modeSwitch);
     await tester.pumpAndSettle();
+    expect(find.text('角色姓名 *'), findsNothing);
     expect(find.text('职业 *'), findsNothing);
     expect(find.text('角色描述 *'), findsOneWidget);
     expect(find.text('描述你想要扮演一个什么样的角色'), findsOneWidget);
@@ -142,6 +155,10 @@ void main() {
 
     await tester.tap(modeSwitch);
     await tester.pumpAndSettle();
+    final restoredNameField = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('characterName-choice-field')),
+    );
+    expect(restoredNameField.controller?.text, '莱拉');
     final restoredClassField = tester.widget<TextFormField>(
       find.byKey(const ValueKey('classAndSubclass-choice-field')),
     );

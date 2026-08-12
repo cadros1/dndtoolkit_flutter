@@ -46,6 +46,21 @@ void main() {
       (exactSelection['choices']! as Map<String, dynamic>)['classAndSubclass'],
       '游侠',
     );
+    expect(
+      (exactSelection['choices']! as Map<String, dynamic>)['characterName'],
+      '莱拉',
+    );
+    expect(
+      const AiBuildRequirements.exactChoices(
+        characterName: '',
+        classAndSubclass: '游侠',
+        raceAndSubrace: '木精灵',
+        background: '侍僧',
+        alignment: '中立善良',
+        gameplayPreference: '远程支援',
+      ).validate(),
+      contains('请填写姓名'),
+    );
   });
 
   test('4d6dl1 drops exactly one lowest die for every score', () {
@@ -62,6 +77,8 @@ void main() {
   test(
     'draft validates base array and maps only final scores to Character',
     () {
+      final json = _validDraftJson();
+      (json['profile']! as Map<String, dynamic>)['characterName'] = '模型改写的姓名';
       final request = AiCharacterBuildRequest(
         configId: 'config',
         totalLevel: 1,
@@ -69,13 +86,14 @@ void main() {
         roleplay: _omittedRoleplay,
         abilitySpec: const AiAbilitySpec.standard(),
       );
-      final draft = AiCharacterDraft.fromJson(_validDraftJson());
+      final draft = AiCharacterDraft.fromJson(json);
       expect(draft.validate(request), isEmpty);
 
       final character = draft.toCharacter(request);
       expect(character.attributes.strength, 15);
       expect(character.attributes.dexterity, 16);
       expect(character.attributes.wisdom, 13);
+      expect(character.profile.characterName, '莱拉');
       expect(character.profile.playerName, isEmpty);
       expect(character.profile.portraitBase64, isEmpty);
       expect(character.profile.age, isEmpty);
@@ -209,6 +227,7 @@ void main() {
 }
 
 const _exactRequirements = AiBuildRequirements.exactChoices(
+  characterName: '莱拉',
   classAndSubclass: '游侠',
   raceAndSubrace: '木精灵',
   background: '侍僧',

@@ -18,12 +18,14 @@ class AiBuildRequirements {
     required this.characterDescription,
     required this.gameplayPreference,
   }) : mode = AiBuildRequirementMode.fromDescription,
+       characterName = '',
        classAndSubclass = '',
        raceAndSubrace = '',
        background = '',
        alignment = '';
 
   const AiBuildRequirements.exactChoices({
+    required this.characterName,
     required this.classAndSubclass,
     required this.raceAndSubrace,
     required this.background,
@@ -34,6 +36,7 @@ class AiBuildRequirements {
 
   final AiBuildRequirementMode mode;
   final String characterDescription;
+  final String characterName;
   final String classAndSubclass;
   final String raceAndSubrace;
   final String background;
@@ -48,6 +51,7 @@ class AiBuildRequirements {
         if (characterDescription.trim().isEmpty) errors.add('请填写角色描述');
         break;
       case AiBuildRequirementMode.exactChoices:
+        if (characterName.trim().isEmpty) errors.add('请填写姓名');
         if (classAndSubclass.trim().isEmpty) errors.add('请填写职业');
         if (raceAndSubrace.trim().isEmpty) errors.add('请填写种族');
         if (background.trim().isEmpty) errors.add('请填写背景');
@@ -72,6 +76,7 @@ class AiBuildRequirements {
       AiBuildRequirementMode.exactChoices => {
         'mode': 'use_exact_choices',
         'choices': {
+          'characterName': characterName.trim(),
           'classAndSubclass': classAndSubclass.trim(),
           'raceAndSubrace': raceAndSubrace.trim(),
           'background': background.trim(),
@@ -587,7 +592,11 @@ class AiCharacterDraft {
       errors.add('职业等级之和必须等于 ${request.totalLevel}');
     }
     errors.addAll(abilities.validate(request.abilitySpec));
-    if (profile.characterName.trim().isEmpty) errors.add('角色姓名不能为空');
+    final resolvedCharacterName =
+        request.requirements.mode == AiBuildRequirementMode.exactChoices
+        ? request.requirements.characterName
+        : profile.characterName;
+    if (resolvedCharacterName.trim().isEmpty) errors.add('角色姓名不能为空');
     if (profile.race.trim().isEmpty) errors.add('角色种族不能为空');
     if (profile.classAndLevel.trim().isEmpty) errors.add('职业与等级不能为空');
     if (combat.hitPointsMax < 1) errors.add('最大生命值必须大于 0');
@@ -600,7 +609,10 @@ class AiCharacterDraft {
     if (errors.isNotEmpty) throw AiDraftValidationException(errors);
 
     final normalizedProfile = Profile(
-      characterName: profile.characterName,
+      characterName:
+          request.requirements.mode == AiBuildRequirementMode.exactChoices
+          ? request.requirements.characterName.trim()
+          : profile.characterName,
       playerName: '',
       race: profile.race,
       classAndLevel: profile.classAndLevel,

@@ -35,6 +35,7 @@ class _FieldDefinition {
 }
 
 const _choiceFields = <_FieldDefinition>[
+  _FieldDefinition('characterName', '角色姓名', ''),
   _FieldDefinition('classAndSubclass', '职业', ''),
   _FieldDefinition('raceAndSubrace', '种族', ''),
   _FieldDefinition('background', '背景', ''),
@@ -329,6 +330,7 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
               gameplayPreference: _gameplayPreferenceController.text,
             )
           : AiBuildRequirements.exactChoices(
+              characterName: _choiceControllers['characterName']!.text,
               classAndSubclass: _choiceControllers['classAndSubclass']!.text,
               raceAndSubrace: _choiceControllers['raceAndSubrace']!.text,
               background: _choiceControllers['background']!.text,
