@@ -129,7 +129,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('职业 *'), findsNothing);
     expect(find.text('角色描述 *'), findsOneWidget);
-    expect(find.text('描述你想要扮演的角色'), findsOneWidget);
+    expect(find.text('描述你想要扮演一个什么样的角色'), findsOneWidget);
     expect(find.text('玩法偏好 *'), findsOneWidget);
 
     tester.state<FormState>(find.byType(Form)).validate();
@@ -146,6 +146,64 @@ void main() {
       find.byKey(const ValueKey('classAndSubclass-choice-field')),
     );
     expect(restoredClassField.controller?.text, '战士（奥法骑士）');
+  });
+
+  testWidgets('系统返回和标题栏返回都会要求确认未保存草稿', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'ai_character_disclosure_accepted_v1': true,
+    });
+    final repository = AiConfigRepository(secretStore: _MemorySecretStore());
+    await repository.saveConfig(
+      const AiServiceConfig(
+        id: 'config',
+        name: '测试配置',
+        provider: AiProviderKind.deepSeek,
+        baseUrl: AiServiceConfig.deepSeekBaseUrl,
+        model: 'deepseek-v4-flash',
+        thinkingEnabled: false,
+        reasoningEffort: 'high',
+      ),
+      apiKey: 'fake-key',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FilledButton(
+              onPressed: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      AiCharacterCreationPage(repository: repository),
+                ),
+              ),
+              child: const Text('打开 AI 建卡'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('打开 AI 建卡'));
+    await tester.pumpAndSettle();
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('退出 AI 建卡？'), findsOneWidget);
+    expect(find.text('退出后，本页面的所有草稿都不会被保存。'), findsOneWidget);
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('AI 建卡'), findsWidgets);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('退出 AI 建卡？'), findsOneWidget);
+    await tester.tap(find.text('退出'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('打开 AI 建卡'), findsOneWidget);
+    expect(find.text('AI 建卡'), findsNothing);
   });
 
   testWidgets('六维策略弹窗仅提供确认进入编辑器', (tester) async {
