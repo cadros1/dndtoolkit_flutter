@@ -117,6 +117,10 @@ void main() {
     ).toCharacter(request);
 
     expect(character.profile.age, '用户-age');
+    expect(
+      character.roleplay.additionalFeaturesAndTraits,
+      '用户-additionalFeaturesAndTraits',
+    );
     expect(character.roleplay.personalityTraits, '用户-personalityTraits');
     expect(character.roleplay.treasure, '用户-treasure');
     expect(character.roleplay.characterExperience, '用户-characterExperience');
@@ -305,6 +309,8 @@ void main() {
       ).values.keys,
       containsAll(aiAppearanceKeys),
     );
+    expect(aiAppearanceKeys, contains('additionalFeaturesAndTraits'));
+    expect(aiNarrativeKeys, isNot(contains('additionalFeaturesAndTraits')));
     appearance['personalityTraits'] = '不应出现';
     expect(
       () => AiNarrativeDraft.fromJson(appearance, AiNarrativeScope.appearance),

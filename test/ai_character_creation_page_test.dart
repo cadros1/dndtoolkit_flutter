@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('人物塑造的无需添加开关会收起全部输入', (tester) async {
+  testWidgets('附加特征属于外貌组且无需添加会收起全部输入', (tester) async {
     SharedPreferences.setMockInitialValues({
       'ai_character_disclosure_accepted_v1': true,
     });
@@ -40,8 +40,25 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('年龄'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('附加特征'),
+      find.byType(ListView),
+      const Offset(0, -300),
+    );
+    expect(find.text('附加特征'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('omit-roleplay-switch')));
+    final appearanceSwitch = find.byKey(
+      const ValueKey('generate-appearance-from-description-switch'),
+    );
+    await tester.ensureVisible(appearanceSwitch);
+    await tester.tap(appearanceSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('年龄'), findsNothing);
+    expect(find.text('附加特征'), findsNothing);
+    expect(find.text('个性'), findsOneWidget);
+
+    final omitSwitch = find.byKey(const ValueKey('omit-roleplay-switch'));
+    tester.widget<Switch>(omitSwitch).onChanged!(true);
     await tester.pumpAndSettle();
 
     expect(find.text('年龄'), findsNothing);
@@ -240,7 +257,9 @@ void main() {
       ),
       apiKey: 'fake-key',
     );
-    final service = _ImmediateAiService();
+    final service = _ImmediateAiService(
+      planDelay: const Duration(milliseconds: 2200),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: AiCharacterCreationPage(repository: repository, service: service),
@@ -270,6 +289,11 @@ void main() {
     await tester.tap(submit);
     await tester.pump();
     await _pumpUntilFound(tester, find.text('确认并修改构筑方案'));
+    expect(find.text('本次生成用时'), findsOneWidget);
+    final elapsed = tester.widget<Text>(
+      find.byKey(const ValueKey('generation-elapsed-value')),
+    );
+    expect(elapsed.data, isNot('00:00'));
 
     expect(find.text('确认并修改构筑方案'), findsOneWidget);
     expect(find.text('角色总等级'), findsOneWidget);
@@ -414,6 +438,9 @@ Future<void> _scrollUntilFound(
 }
 
 class _ImmediateAiService extends AiCharacterService {
+  _ImmediateAiService({this.planDelay = Duration.zero});
+
+  final Duration planDelay;
   AiBuildPlan? lastMechanicsPlan;
 
   @override
@@ -422,6 +449,7 @@ class _ImmediateAiService extends AiCharacterService {
     String apiKey,
     AiCharacterBuildRequest request,
   ) async {
+    await Future<void>.delayed(planDelay);
     return const AiBuildPlan(
       characterName: '莱拉',
       alignment: '中立善良',

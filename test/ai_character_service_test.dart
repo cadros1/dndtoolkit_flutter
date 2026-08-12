@@ -238,6 +238,10 @@ void main() {
       final user = (messages[1] as Map<String, dynamic>)['content'] as String;
       expect(system, contains(item.included));
       expect(system, isNot(contains(item.excluded)));
+      expect(
+        system.contains('"additionalFeaturesAndTraits"'),
+        item.roleplay.appearanceAiDecides,
+      );
       expect(system, isNot(contains('use_exact_input')));
       expect(user, isNot(contains('appearanceAiDecides')));
       expect(user, isNot(contains('narrativeAiDecides')));
@@ -245,6 +249,36 @@ void main() {
       expect(user, isNot(contains('characterName')));
       expect(user, isNot(contains('玩家原文')));
     }
+  });
+
+  test('角色生成请求默认允许慢速模型在十分钟内完成', () {
+    final service = AiCharacterService();
+    expect(
+      service.generationRequestTimeout,
+      AiCharacterService.defaultGenerationRequestTimeout,
+    );
+    expect(service.generationRequestTimeout, const Duration(minutes: 10));
+  });
+
+  test('角色生成请求超过配置的时限后返回可恢复错误', () async {
+    final service = AiCharacterService(
+      generationRequestTimeout: const Duration(milliseconds: 1),
+      clientFactory: () => MockClient((request) async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        return _planResponse();
+      }),
+    );
+
+    await expectLater(
+      service.generateBuildPlan(_config, 'key', _exactRequest(_omitRoleplay)),
+      throwsA(
+        isA<AiServiceException>().having(
+          (error) => error.message,
+          'message',
+          contains('请求超时'),
+        ),
+      ),
+    );
   });
 
   test('model list uses the OpenAI-compatible models endpoint', () async {
