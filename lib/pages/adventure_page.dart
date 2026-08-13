@@ -1,10 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/character.dart';
+import '../services/adventure_rules.dart';
 import '../services/character_storage.dart';
 import '../theme/app_theme.dart';
 import '../widgets/currency_step_row.dart';
 import '../widgets/app_ui.dart';
+import '../widgets/death_save_card.dart';
 
 class AdventurePage extends StatefulWidget {
   const AdventurePage({super.key});
@@ -16,8 +19,10 @@ class AdventurePage extends StatefulWidget {
 class _AdventurePageState extends State<AdventurePage>
     with WidgetsBindingObserver {
   final CharacterStorage _storage = CharacterStorage();
+  final Random _random = Random();
   List<Character> _characters = [];
   Character? _selectedChar;
+  int? _lastDeathSaveRoll;
 
   // --- 骰子控制状态 ---
   RollOption _currentOption = RollOption.free();
@@ -56,6 +61,9 @@ class _AdventurePageState extends State<AdventurePage>
 
   Future<void> _loadData() async {
     final list = await _storage.loadAllCharacters();
+    if (list.isNotEmpty && _normalizeCharacterHealth(list.first)) {
+      await _storage.saveCharacter(list.first);
+    }
     if (!mounted) return;
     setState(() {
       _characters = list;
@@ -66,6 +74,7 @@ class _AdventurePageState extends State<AdventurePage>
       }
       _currentOption = RollOption.free();
       _extraBonus = 0;
+      _lastDeathSaveRoll = null;
     });
   }
 
@@ -79,6 +88,41 @@ class _AdventurePageState extends State<AdventurePage>
   int get _currentBaseBonus {
     if (_selectedChar == null) return 0;
     return _currentOption.calculateBonus(_selectedChar!);
+  }
+
+  bool _normalizeCharacterHealth(Character character) {
+    final combat = character.combat;
+    final current = AdventureRules.clampCurrentHitPoints(
+      combat.hitPointsCurrent,
+      combat.hitPointsMax,
+    );
+    final temporary = AdventureRules.clampTemporaryHitPoints(
+      combat.hitPointsTemp,
+    );
+    var changed =
+        current != combat.hitPointsCurrent || temporary != combat.hitPointsTemp;
+
+    combat.hitPointsCurrent = current;
+    combat.hitPointsTemp = temporary;
+    if (current > 0 && _hasDeathSaveProgress(combat)) {
+      _clearDeathSaveFields(combat);
+      changed = true;
+    }
+    return changed;
+  }
+
+  Future<void> _selectCharacter(Character character) async {
+    await _autoSave();
+    if (_normalizeCharacterHealth(character)) {
+      await _storage.saveCharacter(character);
+    }
+    if (!mounted) return;
+    setState(() {
+      _selectedChar = character;
+      _currentOption = RollOption.free();
+      _extraBonus = 0;
+      _lastDeathSaveRoll = null;
+    });
   }
 
   // --- 页面主体布局 ---
@@ -114,6 +158,42 @@ class _AdventurePageState extends State<AdventurePage>
 
   void _clearRollLogs() {
     _updateRollCenterState(_logs.clear);
+  }
+
+  int _deathSaveSuccessCount(CombatStats combat) => [
+    combat.deathSuccess1,
+    combat.deathSuccess2,
+    combat.deathSuccess3,
+  ].where((value) => value).length;
+
+  int _deathSaveFailureCount(CombatStats combat) => [
+    combat.deathFail1,
+    combat.deathFail2,
+    combat.deathFail3,
+  ].where((value) => value).length;
+
+  bool _hasDeathSaveProgress(CombatStats combat) {
+    return _deathSaveSuccessCount(combat) > 0 ||
+        _deathSaveFailureCount(combat) > 0;
+  }
+
+  void _setDeathSaveFields(
+    CombatStats combat, {
+    required int successes,
+    required int failures,
+  }) {
+    final safeSuccesses = successes.clamp(0, 3);
+    final safeFailures = failures.clamp(0, 3);
+    combat.deathSuccess1 = safeSuccesses >= 1;
+    combat.deathSuccess2 = safeSuccesses >= 2;
+    combat.deathSuccess3 = safeSuccesses >= 3;
+    combat.deathFail1 = safeFailures >= 1;
+    combat.deathFail2 = safeFailures >= 2;
+    combat.deathFail3 = safeFailures >= 3;
+  }
+
+  void _clearDeathSaveFields(CombatStats combat) {
+    _setDeathSaveFields(combat, successes: 0, failures: 0);
   }
 
   // ---- 冒险概览：检定功能统一从独立弹层进入 ----
@@ -154,6 +234,13 @@ class _AdventurePageState extends State<AdventurePage>
           _buildTopBar(isDesktop: isDesktop),
           SizedBox(height: isDesktop ? 10 : 8),
           _buildBasicInfoCard(isDesktop: isDesktop),
+          if (AdventureRules.shouldShowDeathSaves(
+            currentHitPoints: _selectedChar!.combat.hitPointsCurrent,
+            maximumHitPoints: _selectedChar!.combat.hitPointsMax,
+          )) ...[
+            SizedBox(height: isDesktop ? 12 : 10),
+            _buildDeathSaveCard(isDesktop: isDesktop),
+          ],
           SizedBox(height: isDesktop ? 12 : 10),
           _buildRollEntryButton(isDesktop: isDesktop),
         ],
@@ -295,14 +382,7 @@ class _AdventurePageState extends State<AdventurePage>
                       );
                     }).toList(),
                     onChanged: (Character? newValue) {
-                      if (newValue != null) {
-                        _autoSave();
-                        setState(() {
-                          _selectedChar = newValue;
-                          _currentOption = RollOption.free();
-                          _extraBonus = 0;
-                        });
-                      }
+                      if (newValue != null) _selectCharacter(newValue);
                     },
                   ),
                 ),
@@ -488,6 +568,133 @@ class _AdventurePageState extends State<AdventurePage>
     );
 
     return Align(alignment: Alignment.centerLeft, child: chips);
+  }
+
+  Widget _buildDeathSaveCard({required bool isDesktop}) {
+    final combat = _selectedChar!.combat;
+    return DeathSaveCard(
+      successes: _deathSaveSuccessCount(combat),
+      failures: _deathSaveFailureCount(combat),
+      lastRoll: _lastDeathSaveRoll,
+      isDesktop: isDesktop,
+      onRoll: _performDeathSave,
+      onReset: _resetDeathSaves,
+      onSuccessesChanged: (count) => _updateDeathSaveProgress(
+        successes: count,
+        failures: _deathSaveFailureCount(combat),
+      ),
+      onFailuresChanged: (count) => _updateDeathSaveProgress(
+        successes: _deathSaveSuccessCount(combat),
+        failures: count,
+      ),
+    );
+  }
+
+  void _updateDeathSaveProgress({
+    required int successes,
+    required int failures,
+  }) {
+    final combat = _selectedChar?.combat;
+    if (combat == null) return;
+    setState(() {
+      _setDeathSaveFields(combat, successes: successes, failures: failures);
+    });
+    _autoSave();
+  }
+
+  void _resetDeathSaves() {
+    final combat = _selectedChar?.combat;
+    if (combat == null) return;
+    setState(() {
+      _clearDeathSaveFields(combat);
+      _lastDeathSaveRoll = null;
+    });
+    _autoSave();
+  }
+
+  void _performDeathSave() {
+    final character = _selectedChar;
+    if (character == null) return;
+    final combat = character.combat;
+    final successes = _deathSaveSuccessCount(combat);
+    final failures = _deathSaveFailureCount(combat);
+    if (successes >= 3 || failures >= 3) return;
+
+    final roll = _random.nextInt(20) + 1;
+    final resolution = AdventureRules.resolveDeathSave(
+      roll: roll,
+      successes: successes,
+      failures: failures,
+    );
+    final detail = switch (roll) {
+      1 => '1 (骰值) = 1（自然 1，记两次失败）',
+      20 => '20 (骰值) = 20（自然 20，恢复 1 点生命值）',
+      _ => '$roll (骰值) = $roll',
+    };
+    final log = RollLog(
+      title: '死亡豁免',
+      result: roll,
+      detail: detail,
+      isCrit: roll == 20,
+      isFail: roll == 1,
+    );
+
+    setState(() {
+      _logs.insert(0, log);
+      if (resolution.outcome == DeathSaveOutcome.regainedHitPoint) {
+        combat.hitPointsCurrent = AdventureRules.clampCurrentHitPoints(
+          1,
+          combat.hitPointsMax,
+        );
+        _clearDeathSaveFields(combat);
+        _lastDeathSaveRoll = null;
+      } else {
+        _setDeathSaveFields(
+          combat,
+          successes: resolution.successes,
+          failures: resolution.failures,
+        );
+        _lastDeathSaveRoll = roll;
+      }
+    });
+    _refreshRollCenter?.call();
+    _autoSave();
+
+    if (resolution.outcome == DeathSaveOutcome.regainedHitPoint && mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('自然 20：恢复 1 点生命值')));
+    }
+  }
+
+  void _updateCurrentHitPoints(int value) {
+    final combat = _selectedChar?.combat;
+    if (combat == null) return;
+    final next = AdventureRules.clampCurrentHitPoints(
+      value,
+      combat.hitPointsMax,
+    );
+    final clearsDeathSaves =
+        next > 0 &&
+        (_hasDeathSaveProgress(combat) || _lastDeathSaveRoll != null);
+    if (next == combat.hitPointsCurrent && !clearsDeathSaves) return;
+
+    setState(() {
+      combat.hitPointsCurrent = next;
+      if (clearsDeathSaves) {
+        _clearDeathSaveFields(combat);
+        _lastDeathSaveRoll = null;
+      }
+    });
+    if (clearsDeathSaves) _autoSave();
+  }
+
+  void _updateTemporaryHitPoints(int value) {
+    final combat = _selectedChar?.combat;
+    if (combat == null) return;
+    final next = AdventureRules.clampTemporaryHitPoints(value);
+    if (next == combat.hitPointsTemp) return;
+    setState(() => combat.hitPointsTemp = next);
   }
 
   Widget _buildRollEntryButton({required bool isDesktop}) {
@@ -864,12 +1071,6 @@ class _AdventurePageState extends State<AdventurePage>
                       "",
                       onSelected,
                     ),
-                    _buildRollChoiceTile(
-                      "死亡豁免",
-                      RollType.deathSave,
-                      "",
-                      onSelected,
-                    ),
                     const Divider(),
                     _buildSectionHeader("武器命中检定"),
                     if (_selectedChar != null)
@@ -947,7 +1148,6 @@ class _AdventurePageState extends State<AdventurePage>
       RollType.save => Icons.shield_outlined,
       RollType.skill => Icons.fact_check_outlined,
       RollType.initiative => Icons.bolt_outlined,
-      RollType.deathSave => Icons.heart_broken_outlined,
       RollType.weapon => Icons.gps_fixed_outlined,
       RollType.free => Icons.casino_outlined,
     };
@@ -1227,11 +1427,11 @@ class _AdventurePageState extends State<AdventurePage>
               color: (c.hitPointsCurrent < c.hitPointsMax / 4)
                   ? cs.error
                   : AppTheme.success,
-              maxText: "${c.hitPointsMax}",
+              minValue: 0,
+              maxValue: max(0, c.hitPointsMax),
+              maxText: "${max(0, c.hitPointsMax)}",
               compact: compact,
-              onChanged: (val) {
-                setState(() => c.hitPointsCurrent = val);
-              },
+              onChanged: _updateCurrentHitPoints,
             ),
 
             SizedBox(height: compact ? 4 : 8),
@@ -1241,10 +1441,9 @@ class _AdventurePageState extends State<AdventurePage>
               label: "临时",
               value: c.hitPointsTemp,
               color: AppTheme.info,
+              minValue: 0,
               compact: compact,
-              onChanged: (val) {
-                setState(() => c.hitPointsTemp = val);
-              },
+              onChanged: _updateTemporaryHitPoints,
             ),
 
             SizedBox(height: compact ? 6 : 12),
@@ -1268,6 +1467,8 @@ class _AdventurePageState extends State<AdventurePage>
     required Color color,
     required ValueChanged<int> onChanged,
     String? maxText,
+    int minValue = 0,
+    int? maxValue,
     bool compact = false,
   }) {
     return _HpStepperRow(
@@ -1275,6 +1476,8 @@ class _AdventurePageState extends State<AdventurePage>
       value: value,
       color: color,
       maxText: maxText,
+      minValue: minValue,
+      maxValue: maxValue,
       compact: compact,
       onChanged: onChanged,
     );
@@ -2000,6 +2203,8 @@ class _HpStepperRow extends StatefulWidget {
   final Color color;
   final ValueChanged<int> onChanged;
   final String? maxText;
+  final int minValue;
+  final int? maxValue;
   final bool compact;
 
   const _HpStepperRow({
@@ -2008,6 +2213,8 @@ class _HpStepperRow extends StatefulWidget {
     required this.color,
     required this.onChanged,
     this.maxText,
+    this.minValue = 0,
+    this.maxValue,
     this.compact = false,
   });
 
@@ -2017,11 +2224,13 @@ class _HpStepperRow extends StatefulWidget {
 
 class _HpStepperRowState extends State<_HpStepperRow> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.value.toString());
+    _focusNode = FocusNode()..addListener(_handleFocusChanged);
   }
 
   @override
@@ -2036,25 +2245,50 @@ class _HpStepperRowState extends State<_HpStepperRow> {
 
   @override
   void dispose() {
+    _focusNode
+      ..removeListener(_handleFocusChanged)
+      ..dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  void _handleTextChanged(String value) {
-    final newVal = int.tryParse(value);
-    if (newVal != null) widget.onChanged(newVal);
+  int _clampValue(int value) {
+    final effectiveMax = widget.maxValue == null
+        ? null
+        : max(widget.minValue, widget.maxValue!);
+    if (effectiveMax == null) return max(widget.minValue, value);
+    return value.clamp(widget.minValue, effectiveMax);
+  }
+
+  void _handleFocusChanged() {
+    if (!_focusNode.hasFocus) _commitText();
+  }
+
+  void _commitText() {
+    final parsed = int.tryParse(_controller.text);
+    final next = _clampValue(parsed ?? widget.value);
+    final nextText = next.toString();
+    if (_controller.text != nextText) {
+      _controller.text = nextText;
+      _controller.selection = TextSelection.collapsed(offset: nextText.length);
+    }
+    widget.onChanged(next);
+  }
+
+  void _commitValue(int value) {
+    widget.onChanged(_clampValue(value));
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final buttonSize = widget.compact ? 36.0 : 42.0;
-    final fieldHeight = widget.compact ? 36.0 : 42.0;
+    const buttonSize = 44.0;
+    const fieldHeight = 44.0;
     final iconSize = widget.compact ? 16.0 : 18.0;
 
     Widget stepButton({
       required IconData icon,
-      required VoidCallback onPressed,
+      required VoidCallback? onPressed,
     }) {
       return SizedBox.square(
         dimension: buttonSize,
@@ -2086,7 +2320,9 @@ class _HpStepperRowState extends State<_HpStepperRow> {
         ),
         stepButton(
           icon: Icons.remove,
-          onPressed: () => widget.onChanged(widget.value - 1),
+          onPressed: widget.value <= widget.minValue
+              ? null
+              : () => _commitValue(widget.value - 1),
         ),
         Expanded(
           child: Padding(
@@ -2098,7 +2334,9 @@ class _HpStepperRowState extends State<_HpStepperRow> {
                     height: fieldHeight,
                     child: TextField(
                       controller: _controller,
+                      focusNode: _focusNode,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       expands: true,
                       maxLines: null,
                       textAlign: TextAlign.center,
@@ -2126,7 +2364,7 @@ class _HpStepperRowState extends State<_HpStepperRow> {
                           borderSide: BorderSide(color: cs.primary, width: 1.5),
                         ),
                       ),
-                      onChanged: _handleTextChanged,
+                      onSubmitted: (_) => _commitText(),
                     ),
                   ),
                 ),
@@ -2161,7 +2399,9 @@ class _HpStepperRowState extends State<_HpStepperRow> {
         ),
         stepButton(
           icon: Icons.add,
-          onPressed: () => widget.onChanged(widget.value + 1),
+          onPressed: widget.maxValue != null && widget.value >= widget.maxValue!
+              ? null
+              : () => _commitValue(widget.value + 1),
         ),
       ],
     );
@@ -2171,7 +2411,7 @@ class _HpStepperRowState extends State<_HpStepperRow> {
 // --- 辅助类 ---
 enum _AdvantageState { none, adv, dis }
 
-enum RollType { free, attrCheck, save, skill, initiative, deathSave, weapon }
+enum RollType { free, attrCheck, save, skill, initiative, weapon }
 
 class RollOption {
   final String name;
@@ -2207,8 +2447,6 @@ class RollOption {
         return _calcSkillBonus(char, key);
       case RollType.initiative:
         return char.combat.initiative;
-      case RollType.deathSave:
-        return 0;
       case RollType.weapon:
         return manualBonus;
     }

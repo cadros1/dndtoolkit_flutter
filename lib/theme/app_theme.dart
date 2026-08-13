@@ -6,8 +6,13 @@ class AppTheme {
   static const Color lightBackground = Color(0xFFFAF8FF);
   static const Color darkBackground = Color(0xFF14111F);
   static const Color success = Color(0xFF15803D);
+  static const Color successDark = Color(0xFF4ADE80);
   static const Color warning = Color(0xFFD97706);
   static const Color info = Color(0xFF2563EB);
+
+  static Color successFor(Brightness brightness) {
+    return brightness == Brightness.dark ? successDark : success;
+  }
 
   static ThemeData light() {
     final scheme =
