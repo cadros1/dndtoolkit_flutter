@@ -1,0 +1,17 @@
+{
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.dart_tool/**": true,
+    "**/node_modules/**": true
+  },
+  "search.exclude": {
+    "**/build/**": true,
+    "**/.dart_tool/**": true,
+    "**/node_modules/**": true
+  },
+  "dart.analysisExcludedFolders": [
+    "${workspaceFolder}/build",
+    "${workspaceFolder}/.dart_tool",
+    "${workspaceFolder}/node_modules"
+  ]
+}

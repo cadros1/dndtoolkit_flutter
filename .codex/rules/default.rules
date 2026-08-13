@@ -1,0 +1,80 @@
+# DnD Toolkit 的低风险 Flutter/Dart 工作流。
+# 规则只匹配精确命令前缀；SDK 升级、依赖升级和任意 Dart 脚本不在放行范围内。
+
+prefix_rule(
+    pattern = ["flutter", "doctor"],
+    decision = "allow",
+    justification = "只读检查 Flutter 开发环境",
+    match = ["flutter doctor", "flutter doctor -v"],
+    not_match = ["flutter upgrade"],
+)
+
+prefix_rule(
+    pattern = ["flutter", "pub", "get"],
+    decision = "allow",
+    justification = "按项目锁文件解析并获取依赖",
+    match = ["flutter pub get", "flutter pub get --offline"],
+    not_match = ["flutter pub upgrade"],
+)
+
+prefix_rule(
+    pattern = ["flutter", "clean"],
+    decision = "allow",
+    justification = "清理当前 Flutter 项目的生成产物",
+    match = ["flutter clean"],
+    not_match = ["flutter precache"],
+)
+
+prefix_rule(
+    pattern = ["flutter", "analyze"],
+    decision = "allow",
+    justification = "静态分析当前 Flutter 项目",
+    match = ["flutter analyze", "flutter analyze --no-pub"],
+    not_match = ["dart analyze"],
+)
+
+prefix_rule(
+    pattern = ["flutter", "test"],
+    decision = "allow",
+    justification = "运行当前 Flutter 项目的测试",
+    match = ["flutter test", "flutter test --reporter expanded"],
+    not_match = ["flutter drive"],
+)
+
+prefix_rule(
+    pattern = ["flutter", "build", "windows"],
+    decision = "allow",
+    justification = "构建当前项目的正式支持平台 Windows",
+    match = ["flutter build windows", "flutter build windows --release"],
+    not_match = ["flutter build web"],
+)
+
+prefix_rule(
+    pattern = ["flutter", "build", "apk"],
+    decision = "allow",
+    justification = "构建当前项目的正式支持平台 Android",
+    match = ["flutter build apk", "flutter build apk --release"],
+    not_match = ["flutter build ios"],
+)
+
+prefix_rule(
+    pattern = ["dart", "format"],
+    decision = "allow",
+    justification = "格式化或检查 Dart 源码格式",
+    match = [
+        "dart format lib test",
+        "dart format --set-exit-if-changed lib test",
+    ],
+    not_match = ["dart run tool.dart"],
+)
+
+prefix_rule(
+    pattern = ["dart", "run", "build_runner"],
+    decision = "allow",
+    justification = "运行项目声明的代码生成器",
+    match = [
+        "dart run build_runner build",
+        "dart run build_runner build --delete-conflicting-outputs",
+    ],
+    not_match = ["dart run arbitrary_script.dart"],
+)
