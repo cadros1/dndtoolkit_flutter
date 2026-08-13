@@ -2,6 +2,9 @@ import 'dart:math';
 
 import 'character.dart';
 
+const aiCharacterMinLevel = 1;
+const aiCharacterMaxLevel = 5;
+
 const abilityKeys = <String>[
   'strength',
   'dexterity',
@@ -268,7 +271,9 @@ class AiCharacterBuildRequest {
 
   List<String> validate() {
     final errors = <String>[];
-    if (totalLevel < 1 || totalLevel > 20) errors.add('角色总等级必须在 1–20 之间');
+    if (totalLevel < aiCharacterMinLevel || totalLevel > aiCharacterMaxLevel) {
+      errors.add('角色总等级必须在 1–5 之间');
+    }
     errors.addAll(requirements.validate());
     errors.addAll(roleplay.validate());
     final abilityError = abilitySpec.validate();
@@ -585,7 +590,6 @@ class AiCharacterDraft {
       ),
       treasure: _narrativeValue(request, 'treasure', roleplay.treasure),
       characterExperience: _narrativeValue(request, 'characterExperience', ''),
-      featuresAndTraits: roleplay.featuresAndTraits,
     );
     final normalizedSpellbook = Spellbook(
       spellcastingClass: spellbook.spellcastingClass,
@@ -796,7 +800,6 @@ Roleplay _parseRoleplay(Map<String, dynamic> json) {
     'alliesAndOrganizations',
     'additionalFeaturesAndTraits',
     'treasure',
-    'featuresAndTraits',
   };
   _checkKeys(json, keys, 'roleplay');
   String value(String key) => _string(json, key, 'roleplay');
@@ -809,7 +812,6 @@ Roleplay _parseRoleplay(Map<String, dynamic> json) {
     alliesAndOrganizations: value('alliesAndOrganizations'),
     additionalFeaturesAndTraits: value('additionalFeaturesAndTraits'),
     treasure: value('treasure'),
-    featuresAndTraits: value('featuresAndTraits'),
   );
 }
 
@@ -1673,7 +1675,6 @@ class AiCharacterAssembly {
         additionalFeaturesAndTraits: appearance('additionalFeaturesAndTraits'),
         treasure: roleplay('treasure'),
         characterExperience: roleplay('characterExperience'),
-        featuresAndTraits: '',
       ),
       spellbook: Spellbook(
         spellcastingClass: mechanics.spellcastingClass,

@@ -274,7 +274,6 @@ class Roleplay {
   String additionalFeaturesAndTraits;
   String treasure;
   String characterExperience;
-  String featuresAndTraits;
 
   Roleplay({
     this.personalityTraits = "",
@@ -286,7 +285,6 @@ class Roleplay {
     this.additionalFeaturesAndTraits = "",
     this.treasure = "",
     this.characterExperience = "",
-    this.featuresAndTraits = "",
   });
 
   factory Roleplay.fromJson(Map<String, dynamic> json) => _$RoleplayFromJson(json);

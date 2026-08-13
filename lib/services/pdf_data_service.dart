@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -31,6 +32,7 @@ class PdfDataService {
   static PdfFont? _cjkFont;
 
   static const String characterImageFieldName = 'Character Image';
+  static const String additionalFeaturesAndTraitsFieldName = 'Feat+Traits';
 
   static Uint8List? extractButtonIconImageBytes(
     List<int> pdfBytes, {
@@ -142,7 +144,7 @@ class PdfDataService {
       r.characterBackstory = _getText(fieldMap, "Backstory");
       r.alliesAndOrganizations = _getText(fieldMap, "Allies");
       r.treasure = _getText(fieldMap, "Treasure");
-      r.featuresAndTraits = _getText(fieldMap, "Feat+Traits");
+      readAdditionalFeaturesAndTraitsFromForm(form, r);
 
       // --- 属性 ---
       a.strength = _parseInt(_getText(fieldMap, "STR"));
@@ -287,7 +289,7 @@ class PdfDataService {
     _setText(fieldMap, "Backstory", r.characterBackstory);
     _setText(fieldMap, "Allies", r.alliesAndOrganizations);
     _setText(fieldMap, "Treasure", r.treasure);
-    _setText(fieldMap, "Feat+Traits", r.featuresAndTraits);
+    writeAdditionalFeaturesAndTraitsToForm(form, r);
 
     _setText(fieldMap, "STR", a.strength.toString());
     _setText(fieldMap, "STRmod", a.strengthMod.toString());
@@ -393,6 +395,30 @@ class PdfDataService {
   }
 
   // ==================== 辅助方法 ====================
+
+  @visibleForTesting
+  static void readAdditionalFeaturesAndTraitsFromForm(
+    PdfForm form,
+    Roleplay roleplay,
+  ) {
+    final field = _findField(form, additionalFeaturesAndTraitsFieldName);
+    if (field is PdfTextBoxField) {
+      roleplay.additionalFeaturesAndTraits = field.text
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n');
+    }
+  }
+
+  @visibleForTesting
+  static void writeAdditionalFeaturesAndTraitsToForm(
+    PdfForm form,
+    Roleplay roleplay,
+  ) {
+    final field = _findField(form, additionalFeaturesAndTraitsFieldName);
+    if (field is! PdfTextBoxField) return;
+    if (_cjkFont != null) field.font = _cjkFont!;
+    field.text = roleplay.additionalFeaturesAndTraits;
+  }
 
   static PdfField? _findField(PdfForm form, String fieldName) {
     final trimmedName = fieldName.trim();

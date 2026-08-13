@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/ai_character_models.dart';
 import '../models/ai_service_config.dart';
@@ -503,6 +504,19 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
     if (mounted) setState(() => _generationElapsed = Duration.zero);
   }
 
+  void _adjustTotalLevel(int delta) {
+    final current = int.tryParse(_levelController.text.trim());
+    final next = current == null
+        ? aiCharacterMinLevel
+        : (current + delta).clamp(aiCharacterMinLevel, aiCharacterMaxLevel);
+    final text = '$next';
+    _levelController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    setState(() {});
+  }
+
   void _setActiveStage(AiGenerationStage stage) {
     if (mounted) {
       setState(() {
@@ -654,6 +668,15 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
   }
 
   Widget _basicSection() {
+    final currentLevel = int.tryParse(_levelController.text.trim());
+    final canDecreaseLevel =
+        !_generating &&
+        (currentLevel == null || currentLevel > aiCharacterMinLevel);
+    final canIncreaseLevel =
+        !_generating &&
+        (currentLevel == null || currentLevel < aiCharacterMaxLevel);
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         const AppSectionTitle(title: '建卡要求', icon: Icons.tune_outlined),
@@ -661,15 +684,47 @@ class _AiCharacterCreationPageState extends State<AiCharacterCreationPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text('角色总等级 *', style: textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(
+                '最高可创建5级角色',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
               TextFormField(
+                key: const ValueKey('total-level-field'),
                 controller: _levelController,
                 enabled: !_generating,
+                textAlign: TextAlign.center,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '角色总等级 *'),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  prefixIcon: IconButton(
+                    key: const ValueKey('decrease-total-level-button'),
+                    tooltip: '降低角色总等级',
+                    onPressed: canDecreaseLevel
+                        ? () => _adjustTotalLevel(-1)
+                        : null,
+                    icon: const Icon(Icons.remove),
+                  ),
+                  suffixIcon: IconButton(
+                    key: const ValueKey('increase-total-level-button'),
+                    tooltip: '提高角色总等级',
+                    onPressed: canIncreaseLevel
+                        ? () => _adjustTotalLevel(1)
+                        : null,
+                    icon: const Icon(Icons.add),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final level = int.tryParse(value?.trim() ?? '');
-                  return level == null || level < 1 || level > 20
-                      ? '请输入 1–20 的整数'
+                  return level == null ||
+                          level < aiCharacterMinLevel ||
+                          level > aiCharacterMaxLevel
+                      ? '请输入 1–5 的整数'
                       : null;
                 },
               ),

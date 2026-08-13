@@ -205,7 +205,6 @@ Roleplay _$RoleplayFromJson(Map<String, dynamic> json) => Roleplay(
       json['AdditionalFeaturesAndTraits'] as String? ?? "",
   treasure: json['Treasure'] as String? ?? "",
   characterExperience: json['CharacterExperience'] as String? ?? "",
-  featuresAndTraits: json['FeaturesAndTraits'] as String? ?? "",
 );
 
 Map<String, dynamic> _$RoleplayToJson(Roleplay instance) => <String, dynamic>{
@@ -218,7 +217,6 @@ Map<String, dynamic> _$RoleplayToJson(Roleplay instance) => <String, dynamic>{
   'AdditionalFeaturesAndTraits': instance.additionalFeaturesAndTraits,
   'Treasure': instance.treasure,
   'CharacterExperience': instance.characterExperience,
-  'FeaturesAndTraits': instance.featuresAndTraits,
 };
 
 Spell _$SpellFromJson(Map<String, dynamic> json) => Spell(
