@@ -1,200 +1,259 @@
+// ignore_for_file: implementation_imports
+
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:dndtoolkit_flutter/models/character.dart';
 import 'package:dndtoolkit_flutter/services/pdf_data_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as image_library;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/io/pdf_cross_table.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_array.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/implementation/primitives/pdf_dictionary.dart';
+import 'package:syncfusion_flutter_pdf/src/pdf/interfaces/pdf_interface.dart';
 
 void main() {
-  const testPdfPath = r'C:\Users\16272\Downloads\test.pdf';
-  const replacementImagePath = r'C:\Users\16272\OneDrive\图片\环世界小人\美狐-咲花\1.png';
-  const jpgReplacementImagePath =
-      r'C:\Users\16272\Documents\Tencent Files\1627255598\FileRecv\MobileFile\1659864511014headpic.jpg';
-  final testPdfFile = File(testPdfPath);
-  final replacementImageFile = File(replacementImagePath);
-  final jpgReplacementImageFile = File(jpgReplacementImagePath);
+  final templateFile = File('assets/Character.pdf');
 
   test(
-    'extracts the Acrobat button icon image from Character Image',
+    'sets and extracts an Acrobat button icon using the bundled template',
     () {
-      final imageBytes = PdfDataService.extractButtonIconImageBytes(
-        testPdfFile.readAsBytesSync(),
-      );
-
-      expect(imageBytes, isNotNull);
-      expect(imageBytes!.length, greaterThan(1000));
-      expect(imageBytes[0], 0xff);
-      expect(imageBytes[1], 0xd8);
-      expect(imageBytes[2], 0xff);
-
-      final image = PdfBitmap(imageBytes);
-      expect(image.width, 1170);
-      expect(image.height, 1170);
-    },
-    skip: testPdfFile.existsSync()
-        ? false
-        : 'Missing local test PDF: $testPdfPath',
-  );
-
-  test(
-    'sets the Acrobat button icon image and reads it back',
-    () {
-      final pdfBytes = testPdfFile.readAsBytesSync();
-      final originalImageBytes = PdfDataService.extractButtonIconImageBytes(
-        pdfBytes,
-      );
-
-      expect(originalImageBytes, isNotNull);
-
+      final imageBytes = _createRgbPngBytes();
       final updatedPdfBytes = PdfDataService.setButtonIconImageBytes(
-        pdfBytes,
-        originalImageBytes!,
+        templateFile.readAsBytesSync(),
+        imageBytes,
       );
-      expect(updatedPdfBytes, isNotNull);
 
-      final roundTripImageBytes = PdfDataService.extractButtonIconImageBytes(
+      expect(updatedPdfBytes, isNotNull);
+      final extractedBytes = PdfDataService.extractButtonIconImageBytes(
         updatedPdfBytes!,
       );
-      expect(roundTripImageBytes, isNotNull);
+      expect(extractedBytes, isNotNull);
 
-      final image = PdfBitmap(roundTripImageBytes!);
-      expect(image.width, 1170);
-      expect(image.height, 1170);
+      final image = PdfBitmap(extractedBytes!);
+      expect(image.width, 3);
+      expect(image.height, 2);
     },
-    skip: testPdfFile.existsSync()
-        ? false
-        : 'Missing local test PDF: $testPdfPath',
   );
 
-  test(
-    'sets a PNG file as the Acrobat button icon image and reads it back',
-    () {
-      final pdfBytes = testPdfFile.readAsBytesSync();
-      final replacementImageBytes = replacementImageFile.readAsBytesSync();
-      final replacementImage = PdfBitmap(replacementImageBytes);
+  test('sets and extracts a grayscale image with an alpha mask', () {
+    final imageBytes = _createGrayAlphaPngBytes();
+    final updatedPdfBytes = PdfDataService.setButtonIconImageBytes(
+      templateFile.readAsBytesSync(),
+      imageBytes,
+    );
 
-      final updatedPdfBytes = PdfDataService.setButtonIconImageBytes(
-        pdfBytes,
-        replacementImageBytes,
-      );
-      expect(updatedPdfBytes, isNotNull);
+    expect(updatedPdfBytes, isNotNull);
+    final extractedBytes = PdfDataService.extractButtonIconImageBytes(
+      updatedPdfBytes!,
+    );
+    expect(extractedBytes, isNotNull);
 
-      final roundTripImageBytes = PdfDataService.extractButtonIconImageBytes(
-        updatedPdfBytes!,
-      );
-      expect(roundTripImageBytes, isNotNull);
+    final image = PdfBitmap(extractedBytes!);
+    expect(image.width, 2);
+    expect(image.height, 2);
+  });
 
-      final roundTripImage = PdfBitmap(roundTripImageBytes!);
-      expect(roundTripImage.width, replacementImage.width);
-      expect(roundTripImage.height, replacementImage.height);
-    },
-    skip: !testPdfFile.existsSync()
-        ? 'Missing local test PDF: $testPdfPath'
-        : !replacementImageFile.existsSync()
-        ? 'Missing local replacement image: $replacementImagePath'
-        : false,
-  );
+  test('sets and extracts a JPEG button icon', () {
+    final imageBytes = image_library.encodeJpg(
+      image_library.Image(width: 4, height: 3),
+    );
+    final updatedPdfBytes = PdfDataService.setButtonIconImageBytes(
+      templateFile.readAsBytesSync(),
+      imageBytes,
+    );
 
-  test(
-    'sets a JPG file as the Acrobat button icon image and reads it back',
-    () {
-      _setImageAndVerifyReadBack(testPdfFile, jpgReplacementImageFile);
-    },
-    skip: !testPdfFile.existsSync()
-        ? 'Missing local test PDF: $testPdfPath'
-        : !jpgReplacementImageFile.existsSync()
-        ? 'Missing local replacement image: $jpgReplacementImagePath'
-        : false,
-  );
+    expect(updatedPdfBytes, isNotNull);
+    final extractedBytes = PdfDataService.extractButtonIconImageBytes(
+      updatedPdfBytes!,
+    );
+    expect(extractedBytes, isNotNull);
+    expect(extractedBytes!.take(3), <int>[0xff, 0xd8, 0xff]);
 
-  test(
-    'sets a grayscale PNG with alpha as the Acrobat button icon image and reads it back',
-    () {
-      final imageBytes = _createGrayAlphaPngBytes();
-      final replacementImage = PdfBitmap(imageBytes);
+    final image = PdfBitmap(extractedBytes);
+    expect(image.width, 4);
+    expect(image.height, 3);
+  });
 
-      _setImageBytesAndVerifyReadBack(
-        testPdfFile: testPdfFile,
-        imageBytes: imageBytes,
-        replacementImage: replacementImage,
-      );
-    },
-    skip: testPdfFile.existsSync()
-        ? false
-        : 'Missing local test PDF: $testPdfPath',
-  );
+  test('imports and exports the portrait through the formal PDF bridge', () {
+    final templateBytes = templateFile.readAsBytesSync();
+    final imageBytes = _createRgbPngBytes(width: 5, height: 4);
+    final sourcePdfBytes = PdfDataService.setButtonIconImageBytes(
+      templateBytes,
+      imageBytes,
+    );
+    expect(sourcePdfBytes, isNotNull);
 
-  test(
-    'writes PNG and JPG Acrobat button icon PDF outputs',
-    () {
-      final outputDirectory = Directory('output/pdf')
-        ..createSync(recursive: true);
+    final character = Character();
+    expect(
+      PdfDataService.importPortraitFromPdfBytes(character, sourcePdfBytes!),
+      isTrue,
+    );
+    expect(character.profile.portraitBase64, isNotEmpty);
 
-      _setImageVerifyAndSavePdf(
-        testPdfFile: testPdfFile,
-        imageFile: replacementImageFile,
-        outputPdfFile: File(
-          '${outputDirectory.path}/character_image_png_button_icon.pdf',
-        ),
-      );
-      _setImageVerifyAndSavePdf(
-        testPdfFile: testPdfFile,
-        imageFile: jpgReplacementImageFile,
-        outputPdfFile: File(
-          '${outputDirectory.path}/character_image_jpg_button_icon.pdf',
-        ),
-      );
-    },
-    skip: !testPdfFile.existsSync()
-        ? 'Missing local test PDF: $testPdfPath'
-        : !replacementImageFile.existsSync()
-        ? 'Missing local replacement image: $replacementImagePath'
-        : !jpgReplacementImageFile.existsSync()
-        ? 'Missing local replacement image: $jpgReplacementImagePath'
-        : false,
-  );
+    final importedImage = PdfBitmap(
+      base64Decode(character.profile.portraitBase64),
+    );
+    expect(importedImage.width, 5);
+    expect(importedImage.height, 4);
+
+    final exportedPdfBytes = PdfDataService.exportPortraitToPdfBytes(
+      character,
+      templateBytes,
+    );
+    final exportedImageBytes = PdfDataService.extractButtonIconImageBytes(
+      exportedPdfBytes,
+    );
+    expect(exportedImageBytes, isNotNull);
+
+    final exportedImage = PdfBitmap(exportedImageBytes!);
+    expect(exportedImage.width, 5);
+    expect(exportedImage.height, 4);
+  });
+
+  test('portrait export preserves text, button type, and button action', () {
+    final sourcePdfBytes = _setTextField(
+      templateFile.readAsBytesSync(),
+      'CharacterName',
+      'Portrait Test',
+    );
+    expect(_hasButtonAction(sourcePdfBytes), isTrue);
+
+    final character = Character();
+    character.profile.portraitBase64 = base64Encode(_createRgbPngBytes());
+    final exportedPdfBytes = PdfDataService.exportPortraitToPdfBytes(
+      character,
+      sourcePdfBytes,
+    );
+
+    expect(_readTextField(exportedPdfBytes, 'CharacterName'), 'Portrait Test');
+    expect(_isButtonField(exportedPdfBytes), isTrue);
+    expect(_hasButtonAction(exportedPdfBytes), isTrue);
+  });
+
+  test('invalid or oversized portrait data does not block PDF export', () {
+    final templateBytes = templateFile.readAsBytesSync();
+    final character = Character();
+
+    character.profile.portraitBase64 = 'not-valid-base64';
+    expect(
+      identical(
+        PdfDataService.exportPortraitToPdfBytes(character, templateBytes),
+        templateBytes,
+      ),
+      isTrue,
+    );
+
+    character.profile.portraitBase64 = base64Encode(
+      _createRgbPngBytes(width: 8193, height: 1),
+    );
+    expect(
+      identical(
+        PdfDataService.exportPortraitToPdfBytes(character, templateBytes),
+        templateBytes,
+      ),
+      isTrue,
+    );
+  });
 }
 
-void _setImageAndVerifyReadBack(File testPdfFile, File imageFile) {
-  final imageBytes = imageFile.readAsBytesSync();
-  final replacementImage = PdfBitmap(imageBytes);
-
-  _setImageBytesAndVerifyReadBack(
-    testPdfFile: testPdfFile,
-    imageBytes: imageBytes,
-    replacementImage: replacementImage,
-  );
+PdfField? _findField(PdfForm form, String name) {
+  for (int i = 0; i < form.fields.count; i++) {
+    final field = form.fields[i];
+    if (field.name?.trim() == name) return field;
+  }
+  return null;
 }
 
-void _setImageBytesAndVerifyReadBack({
-  required File testPdfFile,
-  required List<int> imageBytes,
-  required PdfBitmap replacementImage,
-}) {
-  final pdfBytes = testPdfFile.readAsBytesSync();
-  final updatedPdfBytes = PdfDataService.setButtonIconImageBytes(
-    pdfBytes,
-    imageBytes,
-  );
-  expect(updatedPdfBytes, isNotNull);
-
-  final roundTripImageBytes = PdfDataService.extractButtonIconImageBytes(
-    updatedPdfBytes!,
-  );
-  expect(roundTripImageBytes, isNotNull);
-
-  final roundTripImage = PdfBitmap(roundTripImageBytes!);
-  expect(roundTripImage.width, replacementImage.width);
-  expect(roundTripImage.height, replacementImage.height);
+List<int> _setTextField(List<int> pdfBytes, String name, String value) {
+  final document = PdfDocument(inputBytes: pdfBytes);
+  try {
+    final field = _findField(document.form, name);
+    expect(field, isA<PdfTextBoxField>());
+    (field! as PdfTextBoxField).text = value;
+    return document.saveSync();
+  } finally {
+    document.dispose();
+  }
 }
 
-List<int> _createGrayAlphaPngBytes() {
-  const width = 2;
-  const height = 2;
-  final rows = <int>[0, 0x00, 0xff, 0x80, 0x80, 0, 0xff, 0x40, 0x30, 0x00];
+String? _readTextField(List<int> pdfBytes, String name) {
+  final document = PdfDocument(inputBytes: pdfBytes);
+  try {
+    final field = _findField(document.form, name);
+    return field is PdfTextBoxField ? field.text : null;
+  } finally {
+    document.dispose();
+  }
+}
+
+bool _isButtonField(List<int> pdfBytes) {
+  final document = PdfDocument(inputBytes: pdfBytes);
+  try {
+    return _findField(document.form, PdfDataService.characterImageFieldName)
+        is PdfButtonField;
+  } finally {
+    document.dispose();
+  }
+}
+
+bool _hasButtonAction(List<int> pdfBytes) {
+  final document = PdfDocument(inputBytes: pdfBytes);
+  try {
+    final field = _findField(
+      document.form,
+      PdfDataService.characterImageFieldName,
+    );
+    if (field is! PdfButtonField) return false;
+
+    final object = PdfCrossTable.dereference(IPdfWrapper.getElement(field));
+    return object is PdfDictionary && _dictionaryHasAction(object);
+  } finally {
+    document.dispose();
+  }
+}
+
+bool _dictionaryHasAction(PdfDictionary dictionary) {
+  if (dictionary['AA'] != null || dictionary['A'] != null) return true;
+
+  final kids = PdfCrossTable.dereference(dictionary['Kids']);
+  if (kids is! PdfArray) return false;
+  for (final kid in kids.elements) {
+    final child = PdfCrossTable.dereference(kid);
+    if (child is PdfDictionary && _dictionaryHasAction(child)) return true;
+  }
+  return false;
+}
+
+List<int> _createRgbPngBytes({int width = 3, int height = 2}) {
+  final rows = <int>[];
+  for (int y = 0; y < height; y++) {
+    rows.add(0);
+    for (int x = 0; x < width; x++) {
+      rows.addAll(<int>[
+        (x * 31 + y * 17) & 0xff,
+        (x * 13 + y * 47) & 0xff,
+        (x * 59 + y * 7) & 0xff,
+      ]);
+    }
+  }
 
   return _createPngBytes(
     width: width,
     height: height,
+    bitDepth: 8,
+    colorType: 2,
+    rawRows: rows,
+  );
+}
+
+List<int> _createGrayAlphaPngBytes() {
+  const rows = <int>[0, 0x00, 0xff, 0x80, 0x80, 0, 0xff, 0x40, 0x30, 0x00];
+
+  return _createPngBytes(
+    width: 2,
+    height: 2,
     bitDepth: 8,
     colorType: 4,
     rawRows: rows,
@@ -245,39 +304,8 @@ int _crc32(List<int> data) {
   for (final byte in data) {
     crc ^= byte;
     for (int i = 0; i < 8; i++) {
-      if ((crc & 1) == 1) {
-        crc = 0xedb88320 ^ (crc >> 1);
-      } else {
-        crc >>= 1;
-      }
+      crc = (crc & 1) == 1 ? 0xedb88320 ^ (crc >> 1) : crc >> 1;
     }
   }
   return (crc ^ 0xffffffff) & 0xffffffff;
-}
-
-void _setImageVerifyAndSavePdf({
-  required File testPdfFile,
-  required File imageFile,
-  required File outputPdfFile,
-}) {
-  final pdfBytes = testPdfFile.readAsBytesSync();
-  final imageBytes = imageFile.readAsBytesSync();
-  final replacementImage = PdfBitmap(imageBytes);
-
-  final updatedPdfBytes = PdfDataService.setButtonIconImageBytes(
-    pdfBytes,
-    imageBytes,
-  );
-  expect(updatedPdfBytes, isNotNull);
-
-  outputPdfFile.writeAsBytesSync(updatedPdfBytes!, flush: true);
-
-  final roundTripImageBytes = PdfDataService.extractButtonIconImageBytes(
-    outputPdfFile.readAsBytesSync(),
-  );
-  expect(roundTripImageBytes, isNotNull);
-
-  final roundTripImage = PdfBitmap(roundTripImageBytes!);
-  expect(roundTripImage.width, replacementImage.width);
-  expect(roundTripImage.height, replacementImage.height);
 }

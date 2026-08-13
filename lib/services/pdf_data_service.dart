@@ -1,5 +1,6 @@
 // ignore_for_file: implementation_imports
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -33,6 +34,8 @@ class PdfDataService {
 
   static const String characterImageFieldName = 'Character Image';
   static const String additionalFeaturesAndTraitsFieldName = 'Feat+Traits';
+  static const int _maxPortraitImageBytes = 8 * 1024 * 1024;
+  static const int _maxPortraitImageDimension = 8192;
 
   static Uint8List? extractButtonIconImageBytes(
     List<int> pdfBytes, {
@@ -84,6 +87,45 @@ class PdfDataService {
       return null;
     } finally {
       document.dispose();
+    }
+  }
+
+  /// 将 PDF 按钮画像导入角色；图片不可用时保留原画像并返回 false。
+  static bool importPortraitFromPdfBytes(
+    Character character,
+    List<int> pdfBytes,
+  ) {
+    try {
+      final imageBytes = extractButtonIconImageBytes(pdfBytes);
+      if (imageBytes == null || !_isUsablePortraitImage(imageBytes)) {
+        return false;
+      }
+
+      character.profile.portraitBase64 = base64Encode(imageBytes);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 将角色画像写入 PDF 按钮；图片不可用时返回未修改的 PDF 字节。
+  static List<int> exportPortraitToPdfBytes(
+    Character character,
+    List<int> pdfBytes,
+  ) {
+    final encodedPortrait = character.profile.portraitBase64.trim();
+    if (encodedPortrait.isEmpty ||
+        encodedPortrait.length > ((_maxPortraitImageBytes + 2) ~/ 3) * 4) {
+      return pdfBytes;
+    }
+
+    try {
+      final imageBytes = base64Decode(encodedPortrait);
+      if (!_isUsablePortraitImage(imageBytes)) return pdfBytes;
+
+      return setButtonIconImageBytes(pdfBytes, imageBytes) ?? pdfBytes;
+    } catch (_) {
+      return pdfBytes;
     }
   }
 
@@ -234,6 +276,7 @@ class PdfDataService {
         }
       }
 
+      importPortraitFromPdfBytes(character, bytes);
       document.dispose();
       return character;
     } catch (e) {
@@ -367,8 +410,9 @@ class PdfDataService {
       }
     }
 
-    final List<int> outputBytes = await document.save();
+    List<int> outputBytes = await document.save();
     document.dispose();
+    outputBytes = exportPortraitToPdfBytes(character, outputBytes);
 
     final String safeName = p.characterName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
     final String fileName = safeName.isEmpty ? 'Unnamed_Character' : safeName;
@@ -395,6 +439,22 @@ class PdfDataService {
   }
 
   // ==================== 辅助方法 ====================
+
+  static bool _isUsablePortraitImage(List<int> imageBytes) {
+    if (imageBytes.isEmpty || imageBytes.length > _maxPortraitImageBytes) {
+      return false;
+    }
+
+    try {
+      final image = PdfBitmap(imageBytes);
+      return image.width > 0 &&
+          image.height > 0 &&
+          image.width <= _maxPortraitImageDimension &&
+          image.height <= _maxPortraitImageDimension;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @visibleForTesting
   static void readAdditionalFeaturesAndTraitsFromForm(
