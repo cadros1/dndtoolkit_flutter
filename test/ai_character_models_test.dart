@@ -1,9 +1,28 @@
 import 'dart:math';
 
 import 'package:dndtoolkit_flutter/models/ai_character_models.dart';
+import 'package:dndtoolkit_flutter/models/character.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Roleplay JSON 只包含统一后的九个字段', () {
+    final roleplay = Roleplay(additionalFeaturesAndTraits: '银色瞳孔');
+    final json = roleplay.toJson();
+
+    expect(json.keys.toSet(), {
+      'PersonalityTraits',
+      'Ideals',
+      'Bonds',
+      'Flaws',
+      'CharacterBackstory',
+      'AlliesAndOrganizations',
+      'AdditionalFeaturesAndTraits',
+      'Treasure',
+      'CharacterExperience',
+    });
+    expect(Roleplay.fromJson(json).additionalFeaturesAndTraits, '银色瞳孔');
+  });
+
   group('PointBuyRules', () {
     test('validates exact budgets and standard costs', () {
       expect(PointBuyRules.canSpendExactly(27), isTrue);
@@ -36,6 +55,18 @@ void main() {
       ).validate(),
       contains('请填写姓名'),
     );
+  });
+
+  test('AI 建卡请求只接受1至5级', () {
+    final request = AiCharacterBuildRequest(
+      configId: 'config',
+      totalLevel: 6,
+      requirements: _exactRequirements,
+      roleplay: _omittedRoleplay,
+      abilitySpec: const AiAbilitySpec.standard(),
+    );
+
+    expect(request.validate(), contains('角色总等级必须在 1–5 之间'));
   });
 
   test('4d6dl1 drops exactly one lowest die for every score', () {
@@ -73,7 +104,7 @@ void main() {
       expect(character.profile.portraitBase64, isEmpty);
       expect(character.profile.age, isEmpty);
       expect(character.roleplay.personalityTraits, isEmpty);
-      expect(character.roleplay.featuresAndTraits, '黑暗视觉；精灵血统');
+      expect(character.combat.ability, '黑暗视觉；精灵血统');
       expect(character.combat.hitPointsCurrent, character.combat.hitPointsMax);
       expect(character.combat.deathFail1, isFalse);
       expect(character.profile.proficiencyBonus, 2);
@@ -124,7 +155,7 @@ void main() {
     expect(character.roleplay.personalityTraits, '用户-personalityTraits');
     expect(character.roleplay.treasure, '用户-treasure');
     expect(character.roleplay.characterExperience, '用户-characterExperience');
-    expect(character.roleplay.featuresAndTraits, '黑暗视觉；精灵血统');
+    expect(character.combat.ability, '黑暗视觉；精灵血统');
   });
 
   test(
@@ -237,7 +268,6 @@ void main() {
     expect(character.combat.hitPointsCurrent, character.combat.hitPointsMax);
     expect(character.combat.hitDiceCurrent, character.combat.hitDiceTotal);
     expect(character.spellbook.allSpells[1].remainSlots, 3);
-    expect(character.roleplay.featuresAndTraits, isEmpty);
   });
 
   test('衍生数值武器数量必须与机械选择一致', () {
@@ -425,7 +455,7 @@ Map<String, dynamic> _validDraftJson() => {
     'hitPointsMax': 11,
     'hitDiceTotal': '1d10',
     'attacksAndSpellcastingNotes': '',
-    'ability': '',
+    'ability': '黑暗视觉；精灵血统',
   },
   'proficiencies': {
     for (final key in _proficiencyKeys) key: false,
@@ -441,7 +471,6 @@ Map<String, dynamic> _validDraftJson() => {
     'alliesAndOrganizations': '',
     'additionalFeaturesAndTraits': '',
     'treasure': '',
-    'featuresAndTraits': '黑暗视觉；精灵血统',
   },
   'spellbook': {
     'spellcastingClass': '',

@@ -11,6 +11,52 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('角色总等级步进器限制为1至5级', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(375, 812));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({
+      'ai_character_disclosure_accepted_v1': true,
+    });
+    final repository = AiConfigRepository(secretStore: _MemorySecretStore());
+    await repository.saveConfig(
+      const AiServiceConfig(
+        id: 'config',
+        name: '测试',
+        provider: AiProviderKind.deepSeek,
+        baseUrl: AiServiceConfig.deepSeekBaseUrl,
+        model: '模型',
+        thinkingEnabled: false,
+        reasoningEffort: 'high',
+      ),
+      apiKey: 'fake-key',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: AiCharacterCreationPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final field = find.byKey(const ValueKey('total-level-field'));
+    final decrease = find.byKey(const ValueKey('decrease-total-level-button'));
+    final increase = find.byKey(const ValueKey('increase-total-level-button'));
+    expect(find.text('角色总等级 *'), findsOneWidget);
+    expect(find.text('最高可创建5级角色'), findsOneWidget);
+    expect(tester.widget<TextFormField>(field).controller!.text, '1');
+    expect(tester.widget<IconButton>(decrease).onPressed, isNull);
+
+    for (var index = 0; index < 4; index++) {
+      await tester.tap(increase);
+      await tester.pump();
+    }
+    expect(tester.widget<TextFormField>(field).controller!.text, '5');
+    expect(tester.widget<IconButton>(increase).onPressed, isNull);
+
+    await tester.enterText(field, '6');
+    tester.state<FormState>(find.byType(Form)).validate();
+    await tester.pump();
+    expect(find.text('请输入 1–5 的整数'), findsOneWidget);
+  });
+
   testWidgets('附加特征属于外貌组且无需添加会收起全部输入', (tester) async {
     SharedPreferences.setMockInitialValues({
       'ai_character_disclosure_accepted_v1': true,
