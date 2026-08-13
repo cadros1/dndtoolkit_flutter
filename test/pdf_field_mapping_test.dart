@@ -67,6 +67,74 @@ void main() {
       reopened.dispose();
     }
   });
+
+  test('移动端 PDF 分享文件名包含可读且唯一的导出时间', () {
+    final firstName = PdfDataService.buildMobileShareFileName(
+      '阿斯特里德',
+      DateTime(2026, 8, 13, 14, 5, 9, 23, 7),
+    );
+    final secondName = PdfDataService.buildMobileShareFileName(
+      '阿斯特里德',
+      DateTime(2026, 8, 13, 14, 5, 9, 23, 8),
+    );
+
+    expect(firstName, '阿斯特里德_20260813_140509_023007.pdf');
+    expect(secondName, '阿斯特里德_20260813_140509_023008.pdf');
+    expect(secondName, isNot(firstName));
+  });
+
+  test('移动端 PDF 分享明确 MIME 并在分享后清理源临时文件', () async {
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'dndtoolkit_pdf_share_test_',
+    );
+    String? sharedPath;
+    try {
+      await PdfDataService.shareMobilePdfBytes(
+        const <int>[1, 2, 3, 4],
+        tempDirectory,
+        '阿斯特里德',
+        exportedAt: DateTime(2026, 8, 13, 14, 5, 9, 23, 7),
+        shareFile: (file, text) async {
+          sharedPath = file.path;
+          expect(file.mimeType, 'application/pdf');
+          expect(text, '分享角色卡: 阿斯特里德_20260813_140509_023007.pdf');
+          expect(await File(file.path).readAsBytes(), const <int>[1, 2, 3, 4]);
+        },
+      );
+
+      expect(sharedPath, isNotNull);
+      expect(await File(sharedPath!).exists(), isFalse);
+    } finally {
+      await tempDirectory.delete(recursive: true);
+    }
+  });
+
+  test('移动端 PDF 分享失败时仍清理源临时文件', () async {
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'dndtoolkit_pdf_share_failure_test_',
+    );
+    String? sharedPath;
+    try {
+      await expectLater(
+        PdfDataService.shareMobilePdfBytes(
+          const <int>[1, 2, 3, 4],
+          tempDirectory,
+          '阿斯特里德',
+          exportedAt: DateTime(2026, 8, 13, 14, 5, 9, 23, 7),
+          shareFile: (file, _) async {
+            sharedPath = file.path;
+            throw StateError('模拟分享失败');
+          },
+        ),
+        throwsStateError,
+      );
+
+      expect(sharedPath, isNotNull);
+      expect(await File(sharedPath!).exists(), isFalse);
+    } finally {
+      await tempDirectory.delete(recursive: true);
+    }
+  });
 }
 
 PdfTextBoxField _findTextField(PdfForm form, String name) {
