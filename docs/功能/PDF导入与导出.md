@@ -52,7 +52,7 @@ related_code:
 | `Alignment` | `profile.alignment` | 双向 |
 | `XP` | `profile.experiencePoints` | 双向 |
 | `Age`, `Height`, `Weight`, `Eyes`, `Skin`, `Hair` | 对应 `profile` 外貌字段 | 双向 |
-| `Character Image` | 当前正式导入/导出流程未映射；仅存在底层图片读写工具 |
+| `Character Image` | `profile.portraitBase64` | 双向 |
 
 ### 属性与熟练
 
@@ -132,9 +132,9 @@ PDF 被视为“角色卡基线交换格式”，不是冒险中实时状态快�
 
 后续如希望 PDF 保存动态状态，需要先确认模板字段和兼容意图，不能静默改变现有语义。
 
-## 画像底层能力与当前限制
+## 画像处理与当前限制
 
-`extractButtonIconImageBytes` 和 `setButtonIconImageBytes` 已实现并有专项测试，但 `importCharacterPdfAsync` 与 `exportCharacterPdfAsync` 当前没有调用它们。因此实际用户流程既不会从 PDF 导入画像，也不会把本地画像写入 PDF。
+正式导入会从 `Character Image` 按钮读取画像并保存到 `profile.portraitBase64`；正式导出会把本地画像写入按钮 icon 和 normal appearance。按钮字段、Acrobat JavaScript 动作和可编辑状态会保留，不会把画像绘制到页面或压平表单。
 
 底层读取方法优先从按钮 `/MK /I` icon 中读取图片，其次检查 normal appearance。当前支持：
 
@@ -142,7 +142,9 @@ PDF 被视为“角色卡基线交换格式”，不是冒险中实时状态快�
 - FlateDecode 或无 filter 的 DeviceRGB/DeviceGray、8 bit 图片包装为 PNG。
 - 可读取 8 bit soft mask 并生成 RGBA PNG。
 
-其他色彩空间、位深或 filter 可能无法提取。底层写入方法会同时更新按钮 icon 和 normal appearance，并按按钮区域等比缩放居中。将能力接入正式流程前，必须补充完整导入/导出集成测试和失败回退，避免图片问题导致整张角色卡无法交换。
+其他色彩空间、位深或 filter 可能无法提取。图片为空、损坏、不受支持、超过 8 MiB 或任一边超过 8192 像素时，只跳过画像，文字角色卡仍会正常导入或导出。写入时按按钮区域等比缩放居中。
+
+底层实现依赖 Syncfusion PDF 24.2.9 的内部接口，因此该依赖固定为精确版本。升级 PDF 库前必须运行画像、按钮动作和完整 PDF 回归测试。
 
 ## 错误与测试要求
 
@@ -151,3 +153,4 @@ PDF 被视为“角色卡基线交换格式”，不是冒险中实时状态快�
 - 关键结构完全不匹配时目前可能仍产生大量默认值角色；未来应增加模板识别/必填字段校验。
 - 测试 fixture 必须放在仓库中并脱敏，禁止依赖个人下载或图片目录。
 - 模板或字段映射变化必须包含双向契约测试和旧模板回归。
+- 画像测试使用内置模板和程序生成图片，并验证画像往返、失败回退、文字字段、按钮类型及按钮动作保留。
