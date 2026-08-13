@@ -126,7 +126,7 @@ const aiDerivedSystemPrompt = r'''
 speed 只填写数值，不带单位；计算时单位使用英尺。
 weapons 必须与输入武器顺序和数量一致。spellSlots 只返回 1 至 9 环，戏法没有法术位；角色未掌握的环级可以省略。
 specialAbilityNumericNotes 只补充 specialAbilities 中需要明确的资源上限、使用次数、骰型、范围或随等级变化的数值，不得引入新特性。
-calculationChecks 用结构化加法说明数值组成：field 只能使用 passivePerception、armorClass、initiative、hitPointsMax、spellSaveDC、spellAttackBonus、spellSlot:环级或 weaponAttackBonus:武器序号；finalValue 必须等于 base 加上 adjustments 全部项目。每个对应最终数值都要提供一项，应用会核对加法和最终值。
+calculationChecks 用结构化加法说明数值组成：field 只能使用 passivePerception、armorClass、initiative、hitPointsMax、spellSaveDC、spellAttackBonus、spellSlot:环级或 weaponAttackBonus:武器序号。武器序号是 weapons 数组从 0 开始的下标：第一件武器必须使用 weaponAttackBonus:0，第二件使用 weaponAttackBonus:1，依此类推。finalValue 必须等于 base 加上 adjustments 全部项目。每个对应最终数值都要提供一项，应用会核对加法和最终值。
 valueExplanations 再用简短中文解释无法仅靠加法表达的规则依据，供用户复核；角色卡只保存最终值。
 experiencePoints 默认返回 0。
 ''';
@@ -241,6 +241,20 @@ List<Map<String, String>> buildAiStageMessages({
       ].join('\n'),
     },
   ];
+}
+
+Map<String, dynamic> buildAbilityAllocationPromptData(AiAbilitySpec spec) {
+  if (spec.method == AiAbilityMethod.pointBuy) {
+    return {
+      'instruction':
+          '使用购点法分配六项基础属性。六项属性均从 8 开始，单项基础属性最低为 8、最高为 15；必须恰好用完全部预算。各最终基础属性的累计费用为：8=0，9=1，10=2，11=3，12=4，13=5，14=7，15=9。',
+      'budget': spec.budget,
+    };
+  }
+  return {
+    'instruction': '将以下六个点数分配给六项基础属性，每个点数必须且只能使用一次。',
+    'values': spec.values,
+  };
 }
 
 Map<String, dynamic> buildNarrativePromptData(

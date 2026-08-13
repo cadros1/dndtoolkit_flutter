@@ -163,7 +163,9 @@ class AiCharacterService {
       data: {
         'totalLevel': request.totalLevel,
         'confirmedPlan': plan.toJson(),
-        'abilityGeneration': request.abilitySpec.toJson(),
+        'abilityAllocation': buildAbilityAllocationPromptData(
+          request.abilitySpec,
+        ),
       },
       parse: AiMechanicsDraft.fromJson,
       validate: (draft) => draft.validate(request.abilitySpec),

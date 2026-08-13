@@ -622,7 +622,7 @@ class AiCharacterDraft {
       proficiencies: proficiencies,
       roleplay: normalizedRoleplay,
       spellbook: normalizedSpellbook,
-      weapons: weapons.isEmpty ? [Weapon(), Weapon(), Weapon()] : weapons,
+      weapons: _withMinimumWeaponSlots(weapons),
       inventory: inventory,
     );
   }
@@ -893,6 +893,14 @@ List<Weapon> _parseWeapons(List<dynamic> raw) {
       damage: _string(map, 'damage', path),
     );
   });
+}
+
+List<Weapon> _withMinimumWeaponSlots(Iterable<Weapon> weapons) {
+  final result = weapons.toList();
+  while (result.length < 3) {
+    result.add(Weapon());
+  }
+  return result;
 }
 
 Inventory _parseInventory(Map<String, dynamic> json) {
@@ -1683,7 +1691,7 @@ class AiCharacterAssembly {
         spellAttackBonus: derived.spellAttackBonus,
         allSpells: spellGroups,
       ),
-      weapons: weapons.isEmpty ? [Weapon(), Weapon(), Weapon()] : weapons,
+      weapons: _withMinimumWeaponSlots(weapons),
       inventory: mechanics.inventory,
     );
   }
