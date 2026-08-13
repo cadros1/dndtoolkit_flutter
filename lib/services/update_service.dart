@@ -14,10 +14,11 @@ class UpdateService extends ChangeNotifier {
   String _latestVersion = "";
   String _releaseNotes = "";
   String _downloadUrl = "";
-  
+
   // GitHub 配置
   final String _repoUrl = "https://github.com/cadros1/dndtoolkit_flutter";
-  final String _apiUrl = "https://api.github.com/repos/cadros1/dndtoolkit_flutter/releases/latest";
+  final String _apiUrl =
+      "https://api.github.com/repos/cadros1/dndtoolkit_flutter/releases/latest";
 
   bool get hasNewVersion => _hasNewVersion;
   String get latestVersion => _latestVersion;
@@ -36,12 +37,12 @@ class UpdateService extends ChangeNotifier {
       final response = await http.get(Uri.parse(_apiUrl));
 
       // --- [修改] 状态处理逻辑 ---
-      
+
       // Case A: 成功获取到 Release 信息
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final String tagName = data['tag_name'] ?? "";
-        
+
         if (tagName.isEmpty) {
           // 如果 tag 为空，视为没有更新
           _resetUpdateState();
@@ -71,7 +72,7 @@ class UpdateService extends ChangeNotifier {
           _resetUpdateState();
           return false;
         }
-      } 
+      }
       // Case B: 仓库没有发布任何 Release
       else if (response.statusCode == 404) {
         // 404 意味着没有 'latest' release，这也是一种“没有更新”
@@ -86,7 +87,6 @@ class UpdateService extends ChangeNotifier {
         // 在HTTP错误时，不改变 _hasNewVersion 的状态，避免红点因临时网络问题消失
         return _hasNewVersion;
       }
-
     } catch (e) {
       // Case D: 网络异常 (如无网络连接)
       if (!silent) {

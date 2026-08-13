@@ -21,7 +21,7 @@ class DiscoveryPage extends StatefulWidget {
 
 class _DiscoveryPageState extends State<DiscoveryPage> {
   final LanSyncService _service = LanSyncService();
-  
+
   // 使用 Set 去重，或者 List 配合逻辑去重
   final List<DiscoveryServer> _servers = [];
   // 记录最后一次更新时间，用于清理离线设备（可选）
@@ -47,22 +47,29 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
       _isScanning = true;
     });
 
-    _subscription = _service.startDiscovery().listen((server) {
-      // 收到广播
-      setState(() {
-        // 如果列表中已存在（IP端口相同），则更新，否则添加
-        final index = _servers.indexWhere((s) => s.ip == server.ip && s.port == server.port);
-        if (index != -1) {
-          _servers[index] = server; // 更新（比如名字变了）
-        } else {
-          _servers.add(server);
+    _subscription = _service.startDiscovery().listen(
+      (server) {
+        // 收到广播
+        setState(() {
+          // 如果列表中已存在（IP端口相同），则更新，否则添加
+          final index = _servers.indexWhere(
+            (s) => s.ip == server.ip && s.port == server.port,
+          );
+          if (index != -1) {
+            _servers[index] = server; // 更新（比如名字变了）
+          } else {
+            _servers.add(server);
+          }
+        });
+      },
+      onError: (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("扫描出错: $e")));
         }
-      });
-    }, onError: (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("扫描出错: $e")));
-      }
-    });
+      },
+    );
   }
 
   void _connectToServer(DiscoveryServer server) {

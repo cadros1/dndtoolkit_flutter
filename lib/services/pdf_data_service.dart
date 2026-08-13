@@ -23,9 +23,25 @@ import '../models/character.dart';
 import 'snack_bar_service.dart';
 
 class PdfDataService {
-  static final List<String> _skills =[
-    "运动", "杂技", "巧手", "躲藏", "奥秘", "历史", "调查", "自然", "宗教",
-    "驯兽", "洞悉", "医药", "察觉", "生存", "欺瞒", "威吓", "表演", "游说"
+  static final List<String> _skills = [
+    "运动",
+    "杂技",
+    "巧手",
+    "躲藏",
+    "奥秘",
+    "历史",
+    "调查",
+    "自然",
+    "宗教",
+    "驯兽",
+    "洞悉",
+    "医药",
+    "察觉",
+    "生存",
+    "欺瞒",
+    "威吓",
+    "表演",
+    "游说",
   ];
 
   static final List<String> _saves = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
@@ -214,13 +230,19 @@ class PdfDataService {
       p.proficiencyBonus = _parseInt(_getText(fieldMap, "ProfBonus"));
       p.passivePerception = _parseInt(_getText(fieldMap, "Passive Perception"));
       p.inspiration = _getText(fieldMap, "Inspiration");
-      pro.otherProficienciesAndLanguages = _getText(fieldMap, "ProficienciesLang");
+      pro.otherProficienciesAndLanguages = _getText(
+        fieldMap,
+        "ProficienciesLang",
+      );
 
       // --- 战斗数据 ---
       c.armorClass = _parseInt(_getText(fieldMap, "AC"));
       c.initiative = _parseInt(_getText(fieldMap, "Initiative"));
       c.speed = _getText(fieldMap, "Speed");
-      c.attacksAndSpellcastingNotes = _getText(fieldMap, "AttacksAndSpellcasting");
+      c.attacksAndSpellcastingNotes = _getText(
+        fieldMap,
+        "AttacksAndSpellcasting",
+      );
       c.ability = _getText(fieldMap, "Ability");
 
       int hpMax = _parseInt(_getText(fieldMap, "HPMax"));
@@ -243,11 +265,13 @@ class PdfDataService {
       for (int idx = 1; idx <= 3; idx++) {
         String name = _getText(fieldMap, "Wpn Name $idx");
         if (name.trim().isNotEmpty) {
-          character.weapons.add(Weapon(
-            name: name,
-            attackBonus: _parseInt(_getText(fieldMap, "Wpn$idx AtkBonus")),
-            damage: _getText(fieldMap, "Wpn$idx Damage"),
-          ));
+          character.weapons.add(
+            Weapon(
+              name: name,
+              attackBonus: _parseInt(_getText(fieldMap, "Wpn$idx AtkBonus")),
+              damage: _getText(fieldMap, "Wpn$idx Damage"),
+            ),
+          );
         }
       }
       // 补齐 3 个槽位
@@ -353,10 +377,7 @@ class PdfDataService {
       if (shareFile != null) {
         await shareFile(sharedFile, '分享角色卡: $shareFileName');
       } else {
-        await Share.shareXFiles(
-          [sharedFile],
-          text: '分享角色卡: $shareFileName',
-        );
+        await Share.shareXFiles([sharedFile], text: '分享角色卡: $shareFileName');
       }
     } finally {
       try {
@@ -372,7 +393,8 @@ class PdfDataService {
     String twoDigits(int value) => value.toString().padLeft(2, '0');
     String threeDigits(int value) => value.toString().padLeft(3, '0');
 
-    final String timestamp = '${exportedAt.year.toString().padLeft(4, '0')}'
+    final String timestamp =
+        '${exportedAt.year.toString().padLeft(4, '0')}'
         '${twoDigits(exportedAt.month)}${twoDigits(exportedAt.day)}_'
         '${twoDigits(exportedAt.hour)}${twoDigits(exportedAt.minute)}'
         '${twoDigits(exportedAt.second)}_'
@@ -505,7 +527,11 @@ class PdfDataService {
       var group = s.allSpells[level];
       if (level > 0) {
         _setText(fieldMap, "SlotsTotal $level", group.totalSlots.toString());
-        _setText(fieldMap, "SlotsRemaining $level", group.totalSlots.toString());
+        _setText(
+          fieldMap,
+          "SlotsRemaining $level",
+          group.totalSlots.toString(),
+        );
       }
 
       for (int k = 0; k < group.spells.length; k++) {
@@ -1167,71 +1193,145 @@ class PdfDataService {
 
   static void _setSkill(Proficiencies p, String skill, bool value) {
     switch (skill) {
-      case "运动": p.athletics = value; break;
-      case "杂技": p.acrobatics = value; break;
-      case "巧手": p.sleightOfHand = value; break;
-      case "躲藏": p.stealth = value; break;
-      case "奥秘": p.arcana = value; break;
-      case "历史": p.history = value; break;
-      case "调查": p.investigation = value; break;
-      case "自然": p.nature = value; break;
-      case "宗教": p.religion = value; break;
-      case "驯兽": p.animalHandling = value; break;
-      case "洞悉": p.insight = value; break;
-      case "医药": p.medicine = value; break;
-      case "察觉": p.perception = value; break;
-      case "生存": p.survival = value; break;
-      case "欺瞒": p.deception = value; break;
-      case "威吓": p.intimidation = value; break;
-      case "表演": p.performance = value; break;
-      case "游说": p.persuasion = value; break;
+      case "运动":
+        p.athletics = value;
+        break;
+      case "杂技":
+        p.acrobatics = value;
+        break;
+      case "巧手":
+        p.sleightOfHand = value;
+        break;
+      case "躲藏":
+        p.stealth = value;
+        break;
+      case "奥秘":
+        p.arcana = value;
+        break;
+      case "历史":
+        p.history = value;
+        break;
+      case "调查":
+        p.investigation = value;
+        break;
+      case "自然":
+        p.nature = value;
+        break;
+      case "宗教":
+        p.religion = value;
+        break;
+      case "驯兽":
+        p.animalHandling = value;
+        break;
+      case "洞悉":
+        p.insight = value;
+        break;
+      case "医药":
+        p.medicine = value;
+        break;
+      case "察觉":
+        p.perception = value;
+        break;
+      case "生存":
+        p.survival = value;
+        break;
+      case "欺瞒":
+        p.deception = value;
+        break;
+      case "威吓":
+        p.intimidation = value;
+        break;
+      case "表演":
+        p.performance = value;
+        break;
+      case "游说":
+        p.persuasion = value;
+        break;
     }
   }
 
   static bool _getSkill(Proficiencies p, String skill) {
     switch (skill) {
-      case "运动": return p.athletics;
-      case "杂技": return p.acrobatics;
-      case "巧手": return p.sleightOfHand;
-      case "躲藏": return p.stealth;
-      case "奥秘": return p.arcana;
-      case "历史": return p.history;
-      case "调查": return p.investigation;
-      case "自然": return p.nature;
-      case "宗教": return p.religion;
-      case "驯兽": return p.animalHandling;
-      case "洞悉": return p.insight;
-      case "医药": return p.medicine;
-      case "察觉": return p.perception;
-      case "生存": return p.survival;
-      case "欺瞒": return p.deception;
-      case "威吓": return p.intimidation;
-      case "表演": return p.performance;
-      case "游说": return p.persuasion;
-      default: return false;
+      case "运动":
+        return p.athletics;
+      case "杂技":
+        return p.acrobatics;
+      case "巧手":
+        return p.sleightOfHand;
+      case "躲藏":
+        return p.stealth;
+      case "奥秘":
+        return p.arcana;
+      case "历史":
+        return p.history;
+      case "调查":
+        return p.investigation;
+      case "自然":
+        return p.nature;
+      case "宗教":
+        return p.religion;
+      case "驯兽":
+        return p.animalHandling;
+      case "洞悉":
+        return p.insight;
+      case "医药":
+        return p.medicine;
+      case "察觉":
+        return p.perception;
+      case "生存":
+        return p.survival;
+      case "欺瞒":
+        return p.deception;
+      case "威吓":
+        return p.intimidation;
+      case "表演":
+        return p.performance;
+      case "游说":
+        return p.persuasion;
+      default:
+        return false;
     }
   }
 
   static void _setSave(Proficiencies p, String save, bool value) {
     switch (save) {
-      case "STR": p.strengthSave = value; break;
-      case "DEX": p.dexteritySave = value; break;
-      case "CON": p.constitutionSave = value; break;
-      case "INT": p.intelligenceSave = value; break;
-      case "WIS": p.wisdomSave = value; break;
-      case "CHA": p.charismaSave = value; break;
+      case "STR":
+        p.strengthSave = value;
+        break;
+      case "DEX":
+        p.dexteritySave = value;
+        break;
+      case "CON":
+        p.constitutionSave = value;
+        break;
+      case "INT":
+        p.intelligenceSave = value;
+        break;
+      case "WIS":
+        p.wisdomSave = value;
+        break;
+      case "CHA":
+        p.charismaSave = value;
+        break;
     }
   }
 
   static bool _getSave(Proficiencies p, String save) {
     switch (save) {
-      case "STR": return p.strengthSave;
-      case "DEX": return p.dexteritySave;
-      case "CON": return p.constitutionSave;
-      case "INT": return p.intelligenceSave;
-      case "WIS": return p.wisdomSave;
-      case "CHA": return p.charismaSave;
-      default: return false;
+      case "STR":
+        return p.strengthSave;
+      case "DEX":
+        return p.dexteritySave;
+      case "CON":
+        return p.constitutionSave;
+      case "INT":
+        return p.intelligenceSave;
+      case "WIS":
+        return p.wisdomSave;
+      case "CHA":
+        return p.charismaSave;
+      default:
+        return false;
     }
   }
 }

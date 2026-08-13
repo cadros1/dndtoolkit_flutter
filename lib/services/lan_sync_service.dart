@@ -19,11 +19,8 @@ class DiscoveryServer {
   final String name;
   final DateTime lastSeen;
 
-  DiscoveryServer({
-    required this.ip,
-    required this.port,
-    required this.name,
-  }) : lastSeen = DateTime.now();
+  DiscoveryServer({required this.ip, required this.port, required this.name})
+    : lastSeen = DateTime.now();
 
   factory DiscoveryServer.fromJson(Map<String, dynamic> json) {
     return DiscoveryServer(
@@ -70,7 +67,7 @@ class RemoteCharacterSummary {
 class LanSyncService {
   RawDatagramSocket? _udpSocket;
   final int _port = 12345;
-  
+
   // 缓存设备信息，避免重复获取
   String? _cachedDeviceName;
   String? _cachedDeviceId;
@@ -144,7 +141,10 @@ class LanSyncService {
   }
 
   /// 1. 获取远程列表
-  Future<List<RemoteCharacterSummary>> getRemoteList(String ip, String pin) async {
+  Future<List<RemoteCharacterSummary>> getRemoteList(
+    String ip,
+    String pin,
+  ) async {
     final url = Uri.parse('http://$ip:$_port/api/list');
     final headers = await _buildHeaders(pin);
 
@@ -161,7 +161,11 @@ class LanSyncService {
   }
 
   /// 2. 下载角色
-  Future<Character> downloadCharacter(String ip, String pin, String charId) async {
+  Future<Character> downloadCharacter(
+    String ip,
+    String pin,
+    String charId,
+  ) async {
     final url = Uri.parse('http://$ip:$_port/api/download?id=$charId');
     final headers = await _buildHeaders(pin);
 
@@ -170,7 +174,7 @@ class LanSyncService {
     if (response.statusCode == 200) {
       // 获取到完整的 Character JSON：
       final Map<String, dynamic> json = jsonDecode(response.body);
-      
+
       // 反序列化
       // 如果 Character.fromJson 能够处理该 JSON 结构
       return Character.fromJson(json);
@@ -180,7 +184,11 @@ class LanSyncService {
   }
 
   /// 3. 上传角色
-  Future<void> uploadCharacter(String ip, String pin, Character character) async {
+  Future<void> uploadCharacter(
+    String ip,
+    String pin,
+    Character character,
+  ) async {
     final url = Uri.parse('http://$ip:$_port/api/upload');
     final headers = await _buildHeaders(pin);
 

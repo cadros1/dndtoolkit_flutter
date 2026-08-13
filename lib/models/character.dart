@@ -13,11 +13,7 @@ class Weapon {
   int attackBonus;
   String damage;
 
-  Weapon({
-    this.name = "",
-    this.attackBonus = 0,
-    this.damage = "",
-  });
+  Weapon({this.name = "", this.attackBonus = 0, this.damage = ""});
 
   factory Weapon.fromJson(Map<String, dynamic> json) => _$WeaponFromJson(json);
   Map<String, dynamic> toJson() => _$WeaponToJson(this);
@@ -47,7 +43,8 @@ class Inventory {
     this.equipmentText = "",
   });
 
-  factory Inventory.fromJson(Map<String, dynamic> json) => _$InventoryFromJson(json);
+  factory Inventory.fromJson(Map<String, dynamic> json) =>
+      _$InventoryFromJson(json);
   Map<String, dynamic> toJson() => _$InventoryToJson(this);
 }
 
@@ -83,7 +80,8 @@ class Attributes {
   int get wisdomMod => _calcMod(wisdom);
   int get charismaMod => _calcMod(charisma);
 
-  factory Attributes.fromJson(Map<String, dynamic> json) => _$AttributesFromJson(json);
+  factory Attributes.fromJson(Map<String, dynamic> json) =>
+      _$AttributesFromJson(json);
   Map<String, dynamic> toJson() => _$AttributesToJson(this);
 }
 
@@ -135,7 +133,8 @@ class Profile {
     this.portraitBase64 = "",
   });
 
-  factory Profile.fromJson(Map<String, dynamic> json) => _$ProfileFromJson(json);
+  factory Profile.fromJson(Map<String, dynamic> json) =>
+      _$ProfileFromJson(json);
   Map<String, dynamic> toJson() => _$ProfileToJson(this);
 }
 
@@ -144,7 +143,7 @@ class Profile {
 /// ----------------------------------------------------------------------------
 @JsonSerializable(fieldRename: FieldRename.pascal)
 class CombatStats {
-  int armorClass; 
+  int armorClass;
   int initiative;
   String speed;
 
@@ -188,7 +187,8 @@ class CombatStats {
     this.ability = "",
   });
 
-  factory CombatStats.fromJson(Map<String, dynamic> json) => _$CombatStatsFromJson(json);
+  factory CombatStats.fromJson(Map<String, dynamic> json) =>
+      _$CombatStatsFromJson(json);
   Map<String, dynamic> toJson() => _$CombatStatsToJson(this);
 }
 
@@ -255,7 +255,8 @@ class Proficiencies {
     this.otherProficienciesAndLanguages = "",
   });
 
-  factory Proficiencies.fromJson(Map<String, dynamic> json) => _$ProficienciesFromJson(json);
+  factory Proficiencies.fromJson(Map<String, dynamic> json) =>
+      _$ProficienciesFromJson(json);
   Map<String, dynamic> toJson() => _$ProficienciesToJson(this);
 }
 
@@ -287,7 +288,8 @@ class Roleplay {
     this.characterExperience = "",
   });
 
-  factory Roleplay.fromJson(Map<String, dynamic> json) => _$RoleplayFromJson(json);
+  factory Roleplay.fromJson(Map<String, dynamic> json) =>
+      _$RoleplayFromJson(json);
   Map<String, dynamic> toJson() => _$RoleplayToJson(this);
 }
 
@@ -299,10 +301,7 @@ class Spell {
   String name;
   bool isPrepared;
 
-  Spell({
-    this.name = "",
-    this.isPrepared = false,
-  });
+  Spell({this.name = "", this.isPrepared = false});
 
   factory Spell.fromJson(Map<String, dynamic> json) => _$SpellFromJson(json);
   Map<String, dynamic> toJson() => _$SpellToJson(this);
@@ -329,15 +328,18 @@ class SpellLevelGroup {
   factory SpellLevelGroup.initDefault(int level) {
     const defaultSpellCounts = [8, 12, 13, 13, 13, 9, 9, 9, 7, 7];
     // 保护性检查，防止越界
-    int count = level < defaultSpellCounts.length ? defaultSpellCounts[level] : 0;
-    
+    int count = level < defaultSpellCounts.length
+        ? defaultSpellCounts[level]
+        : 0;
+
     return SpellLevelGroup(
       level: level,
       spells: List.generate(count, (_) => Spell()),
     );
   }
 
-  factory SpellLevelGroup.fromJson(Map<String, dynamic> json) => _$SpellLevelGroupFromJson(json);
+  factory SpellLevelGroup.fromJson(Map<String, dynamic> json) =>
+      _$SpellLevelGroupFromJson(json);
   Map<String, dynamic> toJson() => _$SpellLevelGroupToJson(this);
 }
 
@@ -360,11 +362,15 @@ class Spellbook {
   /// 对应 C# Spellbook 构造函数：初始化 0-9 环
   factory Spellbook.createDefault() {
     return Spellbook(
-      allSpells: List.generate(10, (index) => SpellLevelGroup.initDefault(index)),
+      allSpells: List.generate(
+        10,
+        (index) => SpellLevelGroup.initDefault(index),
+      ),
     );
   }
 
-  factory Spellbook.fromJson(Map<String, dynamic> json) => _$SpellbookFromJson(json);
+  factory Spellbook.fromJson(Map<String, dynamic> json) =>
+      _$SpellbookFromJson(json);
   Map<String, dynamic> toJson() => _$SpellbookToJson(this);
 }
 
@@ -405,16 +411,17 @@ class Character {
     Spellbook? spellbook,
     List<Weapon>? weapons,
     Inventory? inventory,
-  })  : id = id ?? const Uuid().v4(), // 对应 Guid.NewGuid()
-        profile = profile ?? Profile(),
-        attributes = attributes ?? Attributes(),
-        combat = combat ?? CombatStats(),
-        proficiencies = proficiencies ?? Proficiencies(),
-        roleplay = roleplay ?? Roleplay(),
-        spellbook = spellbook ?? Spellbook.createDefault(), // 使用带默认初始化的工厂
-        weapons = weapons ?? [Weapon(), Weapon(), Weapon()], // 对应 C# 构造函数默认3个武器
-        inventory = inventory ?? Inventory();
+  }) : id = id ?? const Uuid().v4(), // 对应 Guid.NewGuid()
+       profile = profile ?? Profile(),
+       attributes = attributes ?? Attributes(),
+       combat = combat ?? CombatStats(),
+       proficiencies = proficiencies ?? Proficiencies(),
+       roleplay = roleplay ?? Roleplay(),
+       spellbook = spellbook ?? Spellbook.createDefault(), // 使用带默认初始化的工厂
+       weapons = weapons ?? [Weapon(), Weapon(), Weapon()], // 对应 C# 构造函数默认3个武器
+       inventory = inventory ?? Inventory();
 
-  factory Character.fromJson(Map<String, dynamic> json) => _$CharacterFromJson(json);
+  factory Character.fromJson(Map<String, dynamic> json) =>
+      _$CharacterFromJson(json);
   Map<String, dynamic> toJson() => _$CharacterToJson(this);
 }

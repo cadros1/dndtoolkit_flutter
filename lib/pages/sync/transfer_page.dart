@@ -28,16 +28,17 @@ class TransferPage extends StatefulWidget {
   State<TransferPage> createState() => _TransferPageState();
 }
 
-class _TransferPageState extends State<TransferPage> with SingleTickerProviderStateMixin {
+class _TransferPageState extends State<TransferPage>
+    with SingleTickerProviderStateMixin {
   final LanSyncService _syncService = LanSyncService();
   final CharacterStorage _storage = CharacterStorage();
 
   late TabController _tabController;
-  
+
   // 数据源
   List<RemoteCharacterSummary> _remoteList = [];
   List<Character> _localList = [];
-  
+
   bool _isLoading = true;
   String? _errorMsg;
 
@@ -56,8 +57,11 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
 
     try {
       // 1. 获取远程列表（同时验证 PIN）
-      final remote = await _syncService.getRemoteList(widget.serverIp, widget.pin);
-      
+      final remote = await _syncService.getRemoteList(
+        widget.serverIp,
+        widget.pin,
+      );
+
       // 2. 获取本地列表
       final local = await _storage.loadAllCharacters();
 
@@ -76,7 +80,7 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
         });
         // 验证失败，延迟退出
         if (e.toString().contains("PIN")) {
-           _showErrorAndExit("PIN 码验证失败");
+          _showErrorAndExit("PIN 码验证失败");
         }
       }
     }
@@ -96,7 +100,7 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
               Navigator.pop(context); // 退出页面
             },
             child: const Text("确定"),
-          )
+          ),
         ],
       ),
     );
@@ -112,15 +116,21 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
       );
 
       // 1. 下载
-      final character = await _syncService.downloadCharacter(widget.serverIp, widget.pin, item.id);
-      
+      final character = await _syncService.downloadCharacter(
+        widget.serverIp,
+        widget.pin,
+        item.id,
+      );
+
       // 2. 保存到本地
       character.id = UniqueKey().toString(); // 生成新 ID
       await _storage.saveCharacter(character);
 
       if (mounted) {
         Navigator.pop(context); // 关 Loading
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("下载成功")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("下载成功")));
         // 刷新本地列表
         final local = await _storage.loadAllCharacters();
         setState(() => _localList = local);
@@ -128,7 +138,9 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // 关 Loading
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("下载失败: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("下载失败: $e")));
       }
     }
   }
@@ -146,15 +158,22 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("上传成功")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("上传成功")));
         // 刷新远程列表
-        final remote = await _syncService.getRemoteList(widget.serverIp, widget.pin);
+        final remote = await _syncService.getRemoteList(
+          widget.serverIp,
+          widget.pin,
+        );
         setState(() => _remoteList = remote);
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("上传失败: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("上传失败: $e")));
       }
     }
   }
@@ -175,26 +194,31 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMsg != null
-              ? Center(child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(_errorMsg!),
-                    ),
-                    ElevatedButton(onPressed: _initConnection, child: const Text("重试"))
-                  ],
-                ))
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Tab 1: 远程列表
-                    _buildRemoteListView(),
-                    // Tab 2: 本地列表
-                    _buildLocalListView(),
-                  ],
-                ),
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(_errorMsg!),
+                  ),
+                  ElevatedButton(
+                    onPressed: _initConnection,
+                    child: const Text("重试"),
+                  ),
+                ],
+              ),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // Tab 1: 远程列表
+                _buildRemoteListView(),
+                // Tab 2: 本地列表
+                _buildLocalListView(),
+              ],
+            ),
     );
   }
 
@@ -229,8 +253,14 @@ class _TransferPageState extends State<TransferPage> with SingleTickerProviderSt
         final item = _localList[index];
         return ListTile(
           leading: const Icon(Icons.description),
-          title: Text(item.profile.characterName.isEmpty ? "未命名" : item.profile.characterName),
-          subtitle: Text("${item.profile.race} | ${item.profile.classAndLevel}"),
+          title: Text(
+            item.profile.characterName.isEmpty
+                ? "未命名"
+                : item.profile.characterName,
+          ),
+          subtitle: Text(
+            "${item.profile.race} | ${item.profile.classAndLevel}",
+          ),
           trailing: IconButton(
             icon: const Icon(Icons.upload),
             onPressed: () => _handleUpload(item),
