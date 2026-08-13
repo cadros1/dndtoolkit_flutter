@@ -42,6 +42,7 @@ class PdfDataService {
   static const double _minimumReadableFontSize = 4;
   static const int _fontSizeStepsPerPoint = 4;
   static const int _doNotScrollFieldFlag = 1 << 23;
+  static const String _mobileShareDirectoryName = 'dndtoolkit_pdf_share';
 
   static Uint8List? extractButtonIconImageBytes(
     List<int> pdfBytes, {
@@ -310,11 +311,7 @@ class PdfDataService {
     if (Platform.isAndroid || Platform.isIOS) {
       // 移动端：写临时文件 + 系统分享
       final Directory tempDir = await getTemporaryDirectory();
-      final File outputFile = File('${tempDir.path}/$fileName.pdf');
-      await outputFile.writeAsBytes(outputBytes, flush: true);
-      await Share.shareXFiles([
-        XFile(outputFile.path),
-      ], text: '分享角色卡: $fileName.pdf');
+      await shareMobilePdfBytes(outputBytes, tempDir, fileName);
     } else {
       // 桌面端：弹出原生保存文件对话框
       final String? savePath = await FilePicker.platform.saveFile(
@@ -328,6 +325,60 @@ class PdfDataService {
       await File(savePath).writeAsBytes(outputBytes, flush: true);
       SnackBarService.showSuccess('角色卡已保存到: $fileName.pdf');
     }
+  }
+
+  @visibleForTesting
+  static Future<void> shareMobilePdfBytes(
+    List<int> pdfBytes,
+    Directory tempDirectory,
+    String baseName, {
+    DateTime? exportedAt,
+    Future<void> Function(XFile file, String text)? shareFile,
+  }) async {
+    final Directory shareDir = Directory(
+      '${tempDirectory.path}/$_mobileShareDirectoryName',
+    );
+    await shareDir.create(recursive: true);
+    final String shareFileName = buildMobileShareFileName(
+      baseName,
+      exportedAt ?? DateTime.now(),
+    );
+    final File outputFile = File('${shareDir.path}/$shareFileName');
+    try {
+      await outputFile.writeAsBytes(pdfBytes, flush: true);
+      final XFile sharedFile = XFile(
+        outputFile.path,
+        mimeType: 'application/pdf',
+      );
+      if (shareFile != null) {
+        await shareFile(sharedFile, '分享角色卡: $shareFileName');
+      } else {
+        await Share.shareXFiles(
+          [sharedFile],
+          text: '分享角色卡: $shareFileName',
+        );
+      }
+    } finally {
+      try {
+        if (await outputFile.exists()) await outputFile.delete();
+      } catch (_) {
+        // 临时文件会由操作系统缓存清理；清理失败不应掩盖分享结果。
+      }
+    }
+  }
+
+  @visibleForTesting
+  static String buildMobileShareFileName(String baseName, DateTime exportedAt) {
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    String threeDigits(int value) => value.toString().padLeft(3, '0');
+
+    final String timestamp = '${exportedAt.year.toString().padLeft(4, '0')}'
+        '${twoDigits(exportedAt.month)}${twoDigits(exportedAt.day)}_'
+        '${twoDigits(exportedAt.hour)}${twoDigits(exportedAt.minute)}'
+        '${twoDigits(exportedAt.second)}_'
+        '${threeDigits(exportedAt.millisecond)}'
+        '${threeDigits(exportedAt.microsecond)}';
+    return '${baseName}_$timestamp.pdf';
   }
 
   @visibleForTesting
