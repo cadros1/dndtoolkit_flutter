@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dndtoolkit_flutter/models/ai_character_models.dart';
 import 'package:dndtoolkit_flutter/models/ai_service_config.dart';
 import 'package:dndtoolkit_flutter/models/character.dart';
+import 'package:dndtoolkit_flutter/services/ai_character_prompts.dart';
 import 'package:dndtoolkit_flutter/services/ai_character_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -258,6 +259,44 @@ void main() {
       AiCharacterService.defaultGenerationRequestTimeout,
     );
     expect(service.generationRequestTimeout, const Duration(minutes: 10));
+  });
+
+  test('购点法只向第二阶段提供预算和完整购点规则', () {
+    final data = buildAbilityAllocationPromptData(
+      const AiAbilitySpec.pointBuy(27),
+    );
+
+    expect(data['budget'], 27);
+    expect(data, isNot(contains('method')));
+    expect(data, isNot(contains('values')));
+    expect(data['instruction'], contains('六项属性均从 8 开始'));
+    expect(data['instruction'], contains('最高为 15'));
+    expect(data['instruction'], contains('必须恰好用完全部预算'));
+    expect(data['instruction'], contains('14=7，15=9'));
+  });
+
+  test('非购点方式只向第二阶段提供待分配数组，不暴露生成方式', () {
+    const specs = [
+      AiAbilitySpec.standard(),
+      AiAbilitySpec.rolled([16, 15, 14, 12, 10, 8]),
+      AiAbilitySpec.provided([15, 14, 13, 12, 10, 8]),
+    ];
+
+    for (final spec in specs) {
+      final data = buildAbilityAllocationPromptData(spec);
+      final encoded = jsonEncode(data);
+      expect(data['values'], spec.values);
+      expect(data, isNot(contains('method')));
+      expect(data, isNot(contains('budget')));
+      expect(encoded, isNot(contains('standardArray')));
+      expect(encoded, isNot(contains('providedArray')));
+      expect(encoded, isNot(contains('rolled')));
+    }
+  });
+
+  test('第三阶段提示词明确使用从零开始的武器数组下标', () {
+    expect(aiDerivedSystemPrompt, contains('weapons 数组从 0 开始的下标'));
+    expect(aiDerivedSystemPrompt, contains('第一件武器必须使用 weaponAttackBonus:0'));
   });
 
   test('角色生成请求超过配置的时限后返回可恢复错误', () async {

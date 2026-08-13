@@ -268,6 +268,10 @@ void main() {
     expect(character.combat.hitPointsCurrent, character.combat.hitPointsMax);
     expect(character.combat.hitDiceCurrent, character.combat.hitDiceTotal);
     expect(character.spellbook.allSpells[1].remainSlots, 3);
+    expect(character.weapons, hasLength(3));
+    expect(character.weapons.first.name, '长弓');
+    expect(character.weapons[1].name, isEmpty);
+    expect(character.weapons[2].name, isEmpty);
   });
 
   test('衍生数值武器数量必须与机械选择一致', () {
