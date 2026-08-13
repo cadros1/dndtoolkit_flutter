@@ -117,3 +117,10 @@ flutter build apk
 - Windows 与 Android 的交互和文件行为都要考虑。
 - 若改变用户可见行为、数据契约或架构，同步更新相关文档和 ADR。
 - 在交付说明中明确：改了什么、验证了什么、仍有哪些限制。
+
+## Codex 在 Windows 上执行 Flutter/Dart 命令
+
+- Flutter SDK 位于项目目录之外，Flutter/Dart CLI 还会写入 SDK 缓存和用户工具状态；Codex 的 `workspace-write` 沙箱账户没有这些位置的写权限。因此，沙箱内出现 SDK 缓存拒绝访问、工具状态目录拒绝访问或 Git `dubious ownership` 时，不应误报为“测试超时”或“工具不可用”。
+- `.codex/rules/default.rules` 仅放行本项目日常需要的精确命令前缀：环境诊断、依赖获取、项目清理、格式化、代码生成、静态分析、测试，以及 Windows/Android 构建。命中规则时在宿主环境执行；SDK/依赖升级、任意 Dart 脚本、预缓存和全局配置修改仍需单独审批。
+- 常规超时基线：`flutter doctor`、格式化和静态分析为 2 分钟；依赖恢复和项目清理为 3 分钟；代码生成为 5 分钟；完整测试为 5 分钟；Windows/Android release 构建各为 10 分钟。只在进程达到该时限且仍无有效进展时报告超时，并附最后一段实际输出。
+- 运行 Flutter 测试或构建时使用非交互命令并等待最终退出码；不要把命令启动阶段、首次依赖解析或首次编译耗时当成测试失败。
