@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dndtoolkit_flutter/models/ai_service_config.dart';
 import 'package:dndtoolkit_flutter/pages/ai_service_configs_page.dart';
 import 'package:dndtoolkit_flutter/services/ai_character_service.dart';
 import 'package:dndtoolkit_flutter/services/ai_config_repository.dart';
@@ -77,6 +78,70 @@ void main() {
       );
       expect(modelEditable.controller.text, 'deepseek-model-b');
       expect(find.text('模型列表'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'provider and model changes expose only official thinking controls',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AiServiceConfigEditPage(
+            repository: AiConfigRepository(secretStore: _MemorySecretStore()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('支持 low、high、max 三档强度'), findsOneWidget);
+      await tester.tap(find.byType(DropdownButtonFormField<AiProviderKind>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kimi').last);
+      await tester.pumpAndSettle();
+
+      final baseUrlField = find.widgetWithText(TextFormField, 'Base URL *');
+      final baseUrlEditable = tester.widget<EditableText>(
+        find.descendant(of: baseUrlField, matching: find.byType(EditableText)),
+      );
+      expect(baseUrlEditable.controller.text, AiServiceConfig.kimiBaseUrl);
+
+      final modelField = find.widgetWithText(TextFormField, '模型名 *');
+      var modelEditable = tester.widget<EditableText>(
+        find.descendant(of: modelField, matching: find.byType(EditableText)),
+      );
+      expect(modelEditable.controller.text, 'kimi-k3');
+      expect(find.text('该模型始终启用思考模式'), findsOneWidget);
+      expect(find.text('思考强度'), findsOneWidget);
+      final kimiSwitch = tester.widget<SwitchListTile>(
+        find.widgetWithText(SwitchListTile, '启用思考模式'),
+      );
+      expect(kimiSwitch.value, isTrue);
+      expect(kimiSwitch.onChanged, isNull);
+
+      await tester.enterText(modelField, 'kimi-k2.6');
+      await tester.pumpAndSettle();
+      expect(find.text('官方接口仅支持开启或关闭，不提供强度档位'), findsOneWidget);
+      expect(find.text('思考强度'), findsNothing);
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.widgetWithText(SwitchListTile, '启用思考模式'),
+            )
+            .onChanged,
+        isNotNull,
+      );
+
+      await tester.tap(find.byType(DropdownButtonFormField<AiProviderKind>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('MiMo').last);
+      await tester.pumpAndSettle();
+      modelEditable = tester.widget<EditableText>(
+        find.descendant(of: modelField, matching: find.byType(EditableText)),
+      );
+      expect(modelEditable.controller.text, 'mimo-v2.5-pro');
+      expect(find.text('官方接口仅支持开启或关闭，不提供强度档位'), findsOneWidget);
+      expect(find.text('思考强度'), findsNothing);
     },
   );
 }

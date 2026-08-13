@@ -31,17 +31,122 @@ void main() {
         baseUrl: AiServiceConfig.deepSeekBaseUrl,
         model: 'deepseek-v4-flash',
         thinkingEnabled: true,
-        reasoningEffort: 'max',
+        reasoningEffort: 'low',
       );
 
       await service.testConnection(config, 'test-key');
       expect(payload['thinking'], {'type': 'enabled'});
-      expect(payload['reasoning_effort'], 'max');
+      expect(payload['reasoning_effort'], 'low');
       expect(payload['response_format'], {'type': 'json_object'});
       expect(payload, isNot(contains('max_tokens')));
       expect(payload, isNot(contains('max_completion_tokens')));
     },
   );
+
+  test('Kimi K3 sends only its native reasoning effort control', () async {
+    late Map<String, dynamic> payload;
+    final service = AiCharacterService(
+      clientFactory: () => MockClient((request) async {
+        payload = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(
+          request.url.toString(),
+          'https://api.moonshot.cn/v1/chat/completions',
+        );
+        return _okResponse();
+      }),
+    );
+    const config = AiServiceConfig(
+      id: 'kimi',
+      name: 'Kimi',
+      provider: AiProviderKind.kimi,
+      baseUrl: AiServiceConfig.kimiBaseUrl,
+      model: 'kimi-k3',
+      thinkingEnabled: true,
+      reasoningEffort: 'max',
+    );
+
+    await service.testConnection(config, 'test-key');
+    expect(payload['reasoning_effort'], 'max');
+    expect(payload, isNot(contains('thinking')));
+  });
+
+  test('Kimi K2.6 sends only the thinking toggle', () async {
+    late Map<String, dynamic> payload;
+    final service = AiCharacterService(
+      clientFactory: () => MockClient((request) async {
+        payload = jsonDecode(request.body) as Map<String, dynamic>;
+        return _okResponse();
+      }),
+    );
+    const config = AiServiceConfig(
+      id: 'kimi',
+      name: 'Kimi',
+      provider: AiProviderKind.kimi,
+      baseUrl: AiServiceConfig.kimiBaseUrl,
+      model: 'kimi-k2.6',
+      thinkingEnabled: false,
+      reasoningEffort: 'high',
+    );
+
+    await service.testConnection(config, 'test-key');
+    expect(payload['thinking'], {'type': 'disabled'});
+    expect(payload, isNot(contains('reasoning_effort')));
+  });
+
+  test(
+    'Kimi K2.7 Code always thinks without configurable parameters',
+    () async {
+      late Map<String, dynamic> payload;
+      final service = AiCharacterService(
+        clientFactory: () => MockClient((request) async {
+          payload = jsonDecode(request.body) as Map<String, dynamic>;
+          return _okResponse();
+        }),
+      );
+      const config = AiServiceConfig(
+        id: 'kimi-code',
+        name: 'Kimi Code',
+        provider: AiProviderKind.kimi,
+        baseUrl: AiServiceConfig.kimiBaseUrl,
+        model: 'kimi-k2.7-code-highspeed',
+        thinkingEnabled: true,
+        reasoningEffort: 'high',
+      );
+
+      await service.testConnection(config, 'test-key');
+      expect(config.thinkingAlwaysEnabled, isTrue);
+      expect(config.supportsReasoningEffort, isFalse);
+      expect(payload, isNot(contains('thinking')));
+      expect(payload, isNot(contains('reasoning_effort')));
+    },
+  );
+
+  test('MiMo sends its native thinking toggle without a strength', () async {
+    late Map<String, dynamic> payload;
+    final service = AiCharacterService(
+      clientFactory: () => MockClient((request) async {
+        payload = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(
+          request.url.toString(),
+          'https://api.xiaomimimo.com/v1/chat/completions',
+        );
+        return _okResponse();
+      }),
+    );
+    const config = AiServiceConfig(
+      id: 'mimo',
+      name: 'MiMo',
+      provider: AiProviderKind.mimo,
+      baseUrl: AiServiceConfig.mimoBaseUrl,
+      model: 'mimo-v2.5-pro',
+      thinkingEnabled: true,
+      reasoningEffort: 'high',
+    );
+
+    await service.testConnection(config, 'test-key');
+    expect(payload['thinking'], {'type': 'enabled'});
+    expect(payload, isNot(contains('reasoning_effort')));
+  });
 
   test(
     'OpenAI-compatible request omits thinking parameters when disabled',
@@ -352,6 +457,68 @@ void main() {
     expect(await service.fetchModels(config, 'test-key'), [
       'model-a',
       'model-z',
+    ]);
+  });
+
+  test('Kimi model list uses the mainland China API', () async {
+    final service = AiCharacterService(
+      clientFactory: () => MockClient((request) async {
+        expect(request.url.toString(), 'https://api.moonshot.cn/v1/models');
+        expect(request.headers['authorization'], 'Bearer test-key');
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'id': 'kimi-k3'},
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+    const config = AiServiceConfig(
+      id: 'kimi',
+      name: 'Kimi',
+      provider: AiProviderKind.kimi,
+      baseUrl: AiServiceConfig.kimiBaseUrl,
+      model: 'kimi-k3',
+      thinkingEnabled: true,
+      reasoningEffort: 'high',
+    );
+
+    expect(await service.fetchModels(config, 'test-key'), ['kimi-k3']);
+  });
+
+  test('MiMo model list excludes speech-only models', () async {
+    final service = AiCharacterService(
+      clientFactory: () => MockClient((request) async {
+        expect(request.url.toString(), 'https://api.xiaomimimo.com/v1/models');
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'id': 'mimo-v2.5-pro'},
+              {'id': 'mimo-v2.5'},
+              {'id': 'mimo-v2.5-asr'},
+              {'id': 'mimo-v2.5-tts'},
+              {'id': 'mimo-v2.5-tts-voiceclone'},
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+    const config = AiServiceConfig(
+      id: 'mimo',
+      name: 'MiMo',
+      provider: AiProviderKind.mimo,
+      baseUrl: AiServiceConfig.mimoBaseUrl,
+      model: '',
+      thinkingEnabled: true,
+      reasoningEffort: 'high',
+    );
+
+    expect(await service.fetchModels(config, 'test-key'), [
+      'mimo-v2.5',
+      'mimo-v2.5-pro',
     ]);
   });
 }
