@@ -30,12 +30,18 @@ class PdfDataService {
 
   static final List<String> _saves = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 
-  static PdfFont? _cjkFont;
+  static Uint8List? _cjkFontData;
+  static final Map<int, PdfTrueTypeFont> _cjkFonts = {};
 
   static const String characterImageFieldName = 'Character Image';
   static const String additionalFeaturesAndTraitsFieldName = 'Feat+Traits';
   static const int _maxPortraitImageBytes = 8 * 1024 * 1024;
   static const int _maxPortraitImageDimension = 8192;
+  static const double _singleLineMaxFontSize = 12;
+  static const double _multilineMaxFontSize = 8;
+  static const double _minimumReadableFontSize = 4;
+  static const int _fontSizeStepsPerPoint = 4;
+  static const int _doNotScrollFieldFlag = 1 << 23;
 
   static Uint8List? extractButtonIconImageBytes(
     List<int> pdfBytes, {
@@ -286,13 +292,66 @@ class PdfDataService {
 
   /// 导出角色卡 PDF
   static Future<void> exportCharacterPdfAsync(Character character) async {
-    final ByteData fontData = await rootBundle.load('assets/fonts/simsun.ttc'); // 替换为你实际的字体文件名
-    _cjkFont = PdfTrueTypeFont(fontData.buffer.asUint8List(), 12);
-    
+    final ByteData fontData = await rootBundle.load('assets/fonts/simsun.ttc');
     final ByteData templateData = await rootBundle.load('assets/Character.pdf');
-    final PdfDocument document = PdfDocument(inputBytes: templateData.buffer.asUint8List());
-    final PdfForm form = document.form;
+    final List<int> outputBytes = buildCharacterPdfBytes(
+      character,
+      templateData.buffer.asUint8List(),
+      fontData.buffer.asUint8List(),
+    );
 
+    final p = character.profile;
+    final String safeName = p.characterName.replaceAll(
+      RegExp(r'[\\/:*?"<>|]'),
+      '_',
+    );
+    final String fileName = safeName.isEmpty ? 'Unnamed_Character' : safeName;
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      // 移动端：写临时文件 + 系统分享
+      final Directory tempDir = await getTemporaryDirectory();
+      final File outputFile = File('${tempDir.path}/$fileName.pdf');
+      await outputFile.writeAsBytes(outputBytes, flush: true);
+      await Share.shareXFiles([
+        XFile(outputFile.path),
+      ], text: '分享角色卡: $fileName.pdf');
+    } else {
+      // 桌面端：弹出原生保存文件对话框
+      final String? savePath = await FilePicker.platform.saveFile(
+        dialogTitle: '保存角色卡',
+        fileName: '$fileName.pdf',
+        allowedExtensions: ['pdf'],
+      );
+      if (savePath == null) {
+        throw Exception('用户取消了保存');
+      }
+      await File(savePath).writeAsBytes(outputBytes, flush: true);
+      SnackBarService.showSuccess('角色卡已保存到: $fileName.pdf');
+    }
+  }
+
+  @visibleForTesting
+  static List<int> buildCharacterPdfBytes(
+    Character character,
+    List<int> templateBytes,
+    List<int> cjkFontBytes,
+  ) {
+    _cjkFontData = Uint8List.fromList(cjkFontBytes);
+    _cjkFonts.clear();
+
+    final PdfDocument document = PdfDocument(inputBytes: templateBytes);
+    late final List<int> outputBytes;
+    try {
+      _writeCharacterToForm(document.form, character);
+      outputBytes = document.saveSync();
+    } finally {
+      document.dispose();
+    }
+
+    return exportPortraitToPdfBytes(character, outputBytes);
+  }
+
+  static void _writeCharacterToForm(PdfForm form, Character character) {
     final Map<String, PdfField> fieldMap = {};
     for (int i = 0; i < form.fields.count; i++) {
       final field = form.fields[i];
@@ -409,33 +468,6 @@ class PdfDataService {
         }
       }
     }
-
-    List<int> outputBytes = await document.save();
-    document.dispose();
-    outputBytes = exportPortraitToPdfBytes(character, outputBytes);
-
-    final String safeName = p.characterName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final String fileName = safeName.isEmpty ? 'Unnamed_Character' : safeName;
-
-    if (Platform.isAndroid || Platform.isIOS) {
-      // 移动端：写临时文件 + 系统分享
-      final Directory tempDir = await getTemporaryDirectory();
-      final File outputFile = File('${tempDir.path}/$fileName.pdf');
-      await outputFile.writeAsBytes(outputBytes, flush: true);
-      await Share.shareXFiles([XFile(outputFile.path)], text: '分享角色卡: $fileName.pdf');
-    } else {
-      // 桌面端：弹出原生保存文件对话框
-      final String? savePath = await FilePicker.platform.saveFile(
-        dialogTitle: '保存角色卡',
-        fileName: '$fileName.pdf',
-        allowedExtensions: ['pdf'],
-      );
-      if (savePath == null) {
-        throw Exception('用户取消了保存');
-      }
-      await File(savePath).writeAsBytes(outputBytes, flush: true);
-      SnackBarService.showSuccess('角色卡已保存到: $fileName.pdf');
-    }
   }
 
   // ==================== 辅助方法 ====================
@@ -476,8 +508,7 @@ class PdfDataService {
   ) {
     final field = _findField(form, additionalFeaturesAndTraitsFieldName);
     if (field is! PdfTextBoxField) return;
-    if (_cjkFont != null) field.font = _cjkFont!;
-    field.text = roleplay.additionalFeaturesAndTraits;
+    _writeTextBox(field, roleplay.additionalFeaturesAndTraits);
   }
 
   static PdfField? _findField(PdfForm form, String fieldName) {
@@ -994,11 +1025,86 @@ class PdfDataService {
   static void _setText(Map<String, PdfField> map, String key, String value) {
     final field = map[key.trim()];
     if (field is PdfTextBoxField) {
-      if (_cjkFont != null) {
-        field.font = _cjkFont!;
-      }
-      field.text = value;
+      _writeTextBox(field, value);
     }
+  }
+
+  static void _writeTextBox(PdfTextBoxField field, String value) {
+    if (_cjkFontData != null) {
+      field.font = _findFittingFont(field, value);
+    }
+    _enableTextScrolling(field);
+    field.text = value;
+  }
+
+  static PdfTrueTypeFont _findFittingFont(PdfTextBoxField field, String value) {
+    final double maximumSize = field.multiline
+        ? _multilineMaxFontSize
+        : _singleLineMaxFontSize;
+    final int maximumStep = (maximumSize * _fontSizeStepsPerPoint).round();
+    final int minimumStep = (_minimumReadableFontSize * _fontSizeStepsPerPoint)
+        .round();
+
+    for (int step = maximumStep; step >= minimumStep; step--) {
+      final font = _fontAtStep(step);
+      if (_textFitsField(field, value, font)) return font;
+    }
+    return _fontAtStep(minimumStep);
+  }
+
+  static PdfTrueTypeFont _fontAtStep(int step) {
+    return _cjkFonts.putIfAbsent(
+      step,
+      () => PdfTrueTypeFont(_cjkFontData!, step / _fontSizeStepsPerPoint),
+    );
+  }
+
+  static bool _textFitsField(
+    PdfTextBoxField field,
+    String value,
+    PdfFont font,
+  ) {
+    if (value.isEmpty) return true;
+
+    final double horizontalPadding = 4.0 * max(1, field.borderWidth);
+    final double verticalPadding = 4.0 * max(1, field.borderWidth);
+    final double availableWidth = max(
+      1,
+      field.bounds.width - horizontalPadding,
+    );
+    final double availableHeight = max(
+      1,
+      field.bounds.height - verticalPadding,
+    );
+
+    if (!field.multiline) {
+      final Size measured = font.measureString(value);
+      return measured.width <= availableWidth &&
+          measured.height <= availableHeight;
+    }
+
+    final format = PdfStringFormat(alignment: field.textAlignment)
+      ..lineLimit = false;
+    final Size measured = font.measureString(
+      value,
+      layoutArea: Size(availableWidth, 1000000),
+      format: format,
+    );
+    return measured.width <= availableWidth &&
+        measured.height <= availableHeight;
+  }
+
+  static void _enableTextScrolling(PdfTextBoxField field) {
+    // Syncfusion 24.2.9 的 loaded-field scrollable setter 错误地依赖
+    // spellCheck 状态，因此直接清除 PDF 规范中的 DoNotScroll 位。
+    final dictionary = _getFieldDictionary(field);
+    if (dictionary == null) return;
+
+    final flagsValue = _dereference(dictionary['Ff']);
+    final int flags = flagsValue is PdfNumber
+        ? flagsValue.value?.toInt() ?? 0
+        : 0;
+    dictionary['Ff'] = PdfNumber(flags & ~_doNotScrollFieldFlag);
   }
 
   static void _setCheck(Map<String, PdfField> map, String key, bool isChecked) {
