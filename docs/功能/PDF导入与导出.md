@@ -1,7 +1,7 @@
 ---
 status: active
 title: PDF 导入与导出
-last_verified: 2026-08-08
+last_verified: 2026-08-13
 related_code:
   - assets/Character.pdf
   - lib/services/pdf_data_service.dart
@@ -101,9 +101,9 @@ PDF 最多映射三个武器。导入后不足三个会补空槽；超过三个�
 | `Backstory` | `roleplay.characterBackstory` |
 | `Allies` | `roleplay.alliesAndOrganizations` |
 | `Treasure` | `roleplay.treasure` |
-| `Feat+Traits` | `roleplay.featuresAndTraits` |
+| `Feat+Traits` | `roleplay.additionalFeaturesAndTraits` |
 
-当前 UI 编辑的是 `additionalFeaturesAndTraits`，PDF 使用 `featuresAndTraits`。两者尚未统一，见项目状态中的已知问题。
+`additionalFeaturesAndTraits` 是 UI 与 PDF 共用的正式字段，PDF 导入和导出均只使用该字段。
 
 ### 施法
 
