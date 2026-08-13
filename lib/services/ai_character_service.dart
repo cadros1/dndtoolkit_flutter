@@ -56,7 +56,7 @@ class AiCharacterService {
     try {
       final response = await client
           .get(
-            _modelsUri(config.baseUrl),
+            _modelsUri(config.effectiveBaseUrl),
             headers: {
               'Authorization': 'Bearer ${apiKey.trim()}',
               'Accept': 'application/json',
@@ -74,7 +74,11 @@ class AiCharacterService {
       for (final item in decoded['data'] as List) {
         if (item is! Map) continue;
         final id = item['id'];
-        if (id is String && id.trim().isNotEmpty) models.add(id.trim());
+        if (id is String &&
+            id.trim().isNotEmpty &&
+            _supportsCharacterGeneration(config.provider, id.trim())) {
+          models.add(id.trim());
+        }
       }
       final result = models.toList()..sort();
       if (result.isEmpty) {
@@ -304,21 +308,36 @@ class AiCharacterService {
       'messages': messages,
       'response_format': {'type': 'json_object'},
     };
-    if (config.provider == AiProviderKind.deepSeek) {
-      body['thinking'] = {
-        'type': config.thinkingEnabled ? 'enabled' : 'disabled',
-      };
-      if (config.thinkingEnabled) {
-        body['reasoning_effort'] = config.reasoningEffort;
-      }
-    } else if (config.thinkingEnabled) {
-      body['reasoning_effort'] = config.reasoningEffort;
+    switch (config.provider) {
+      case AiProviderKind.deepSeek:
+        body['thinking'] = {
+          'type': config.thinkingEnabled ? 'enabled' : 'disabled',
+        };
+        if (config.thinkingEnabled) {
+          body['reasoning_effort'] = config.normalizedReasoningEffort;
+        }
+      case AiProviderKind.kimi:
+        if (config.supportsReasoningEffort) {
+          body['reasoning_effort'] = config.normalizedReasoningEffort;
+        } else if (config.supportsThinkingToggle) {
+          body['thinking'] = {
+            'type': config.thinkingEnabled ? 'enabled' : 'disabled',
+          };
+        }
+      case AiProviderKind.mimo:
+        body['thinking'] = {
+          'type': config.thinkingEnabled ? 'enabled' : 'disabled',
+        };
+      case AiProviderKind.openAiCompatible:
+        if (config.thinkingEnabled) {
+          body['reasoning_effort'] = config.normalizedReasoningEffort;
+        }
     }
 
     try {
       final response = await client
           .post(
-            _chatCompletionsUri(config.baseUrl),
+            _chatCompletionsUri(config.effectiveBaseUrl),
             headers: {
               'Authorization': 'Bearer ${apiKey.trim()}',
               'Content-Type': 'application/json; charset=utf-8',
@@ -381,6 +400,15 @@ class AiCharacterService {
       );
     }
     return uri;
+  }
+
+  static bool _supportsCharacterGeneration(
+    AiProviderKind provider,
+    String model,
+  ) {
+    if (provider != AiProviderKind.mimo) return true;
+    final normalized = model.toLowerCase();
+    return !normalized.contains('-tts') && !normalized.endsWith('-asr');
   }
 
   static String _statusMessage(int statusCode) => switch (statusCode) {

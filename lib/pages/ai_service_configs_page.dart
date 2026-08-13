@@ -222,7 +222,7 @@ class _AiServiceConfigsPageState extends State<AiServiceConfigsPage> {
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 subtitle: Text(
-                  '${config.provider.label} · ${config.model}\n思考：${config.thinkingEnabled ? config.reasoningEffort : '关闭'}',
+                  '${config.provider.label} · ${config.model}\n思考：${config.thinkingSummary}',
                 ),
                 isThreeLine: true,
                 onTap: () => _select(config),
@@ -300,14 +300,16 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
     _effort = config?.reasoningEffort ?? 'high';
     _nameController = TextEditingController(text: config?.name ?? '');
     _baseUrlController = TextEditingController(
-      text: config?.baseUrl ?? AiServiceConfig.deepSeekBaseUrl,
+      text:
+          _provider.fixedBaseUrl ??
+          config?.baseUrl ??
+          'https://api.openai.com/v1',
     );
     _modelController = TextEditingController(
-      text:
-          config?.model ??
-          (_provider == AiProviderKind.deepSeek ? 'deepseek-v4-flash' : ''),
+      text: config?.model ?? _provider.defaultModel,
     );
     _apiKeyController = TextEditingController();
+    _normalizeThinkingState();
   }
 
   @override
@@ -320,42 +322,60 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
     super.dispose();
   }
 
-  List<String> get _efforts => _provider == AiProviderKind.deepSeek
-      ? const ['high', 'max']
-      : const ['low', 'medium', 'high', 'xhigh', 'max'];
-
-  void _changeProvider(AiProviderKind provider) {
-    setState(() {
-      _provider = provider;
-      if (provider == AiProviderKind.deepSeek) {
-        _baseUrlController.text = AiServiceConfig.deepSeekBaseUrl;
-        if (_modelController.text.trim().isEmpty) {
-          _modelController.text = 'deepseek-v4-flash';
-        }
-      } else if (_baseUrlController.text == AiServiceConfig.deepSeekBaseUrl) {
-        _baseUrlController.text = 'https://api.openai.com/v1';
-      }
-      if (!_efforts.contains(_effort)) _effort = _efforts.first;
-    });
-  }
-
-  AiServiceConfig _buildConfig() => AiServiceConfig(
-    id: widget.existing?.id ?? const Uuid().v4(),
+  AiServiceConfig get _capabilityConfig => AiServiceConfig(
+    id: widget.existing?.id ?? '',
     name: _nameController.text.trim(),
     provider: _provider,
-    baseUrl: _provider == AiProviderKind.deepSeek
-        ? AiServiceConfig.deepSeekBaseUrl
-        : _baseUrlController.text.trim().replaceFirst(RegExp(r'/+$'), ''),
+    baseUrl: _baseUrlController.text.trim(),
     model: _modelController.text.trim(),
     thinkingEnabled: _thinkingEnabled,
     reasoningEffort: _effort,
   );
 
+  List<String> get _efforts => _capabilityConfig.allowedReasoningEfforts;
+
+  void _normalizeThinkingState() {
+    final config = _capabilityConfig;
+    if (config.thinkingAlwaysEnabled) {
+      _thinkingEnabled = true;
+    } else if (!config.supportsThinkingToggle) {
+      _thinkingEnabled = false;
+    }
+    if (!_efforts.contains(_effort)) _effort = _efforts.first;
+  }
+
+  void _changeProvider(AiProviderKind provider) {
+    setState(() {
+      _provider = provider;
+      _baseUrlController.text =
+          provider.fixedBaseUrl ?? 'https://api.openai.com/v1';
+      _modelController.text = provider.defaultModel;
+      _thinkingEnabled = provider != AiProviderKind.openAiCompatible;
+      _normalizeThinkingState();
+    });
+  }
+
+  AiServiceConfig _buildConfig() {
+    final capability = _capabilityConfig;
+    return AiServiceConfig(
+      id: widget.existing?.id ?? const Uuid().v4(),
+      name: _nameController.text.trim(),
+      provider: _provider,
+      baseUrl: (_provider.fixedBaseUrl ?? _baseUrlController.text.trim())
+          .replaceFirst(RegExp(r'/+$'), ''),
+      model: _modelController.text.trim(),
+      thinkingEnabled: capability.thinkingAlwaysEnabled
+          ? true
+          : capability.supportsThinkingToggle && _thinkingEnabled,
+      reasoningEffort: capability.normalizedReasoningEffort,
+    );
+  }
+
   String? _required(String? value) =>
       value == null || value.trim().isEmpty ? '此项不能为空' : null;
 
   String? _validateBaseUrl(String? value) {
-    if (_provider == AiProviderKind.deepSeek) return null;
+    if (_provider.fixedBaseUrl != null) return null;
     final uri = Uri.tryParse(value?.trim() ?? '');
     if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
       return '请输入有效的 HTTPS Base URL';
@@ -459,7 +479,10 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
       setState(() => _loadingModels = false);
       final selected = await _showModelPicker(models);
       if (!mounted || selected == null) return;
-      setState(() => _modelController.text = selected);
+      setState(() {
+        _modelController.text = selected;
+        _normalizeThinkingState();
+      });
     } on Exception catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -521,6 +544,7 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
   Widget build(BuildContext context) {
     final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     final controlsBusy = _busy || _loadingModels;
+    final capability = _capabilityConfig;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? '新建 AI 服务配置' : '编辑 AI 服务配置'),
@@ -568,14 +592,13 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
                         TextFormField(
                           controller: _baseUrlController,
                           enabled:
-                              _provider != AiProviderKind.deepSeek &&
-                              !controlsBusy,
+                              _provider.fixedBaseUrl == null && !controlsBusy,
                           keyboardType: TextInputType.url,
                           decoration: InputDecoration(
                             labelText: 'Base URL *',
-                            helperText: _provider == AiProviderKind.deepSeek
-                                ? 'DeepSeek base URL'
-                                : '例如 https://api.openai.com/v1',
+                            helperText: _provider.fixedBaseUrl == null
+                                ? '填写兼容服务提供的 HTTPS 地址'
+                                : '${_provider.label} 官方地址',
                           ),
                           validator: _validateBaseUrl,
                         ),
@@ -584,6 +607,7 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
                           controller: _modelController,
                           decoration: const InputDecoration(labelText: '模型名 *'),
                           validator: _required,
+                          onChanged: (_) => setState(_normalizeThinkingState),
                         ),
                         const SizedBox(height: 12),
                         Align(
@@ -649,16 +673,19 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: const Text('启用思考模式'),
-                          subtitle: const Text('目标模型不支持时，连接测试会返回错误'),
-                          value: _thinkingEnabled,
-                          onChanged: controlsBusy
+                          subtitle: Text(_thinkingDescription(capability)),
+                          value: capability.effectiveThinkingEnabled,
+                          onChanged:
+                              controlsBusy || !capability.supportsThinkingToggle
                               ? null
                               : (value) =>
                                     setState(() => _thinkingEnabled = value),
                         ),
-                        if (_thinkingEnabled) ...[
+                        if (capability.effectiveThinkingEnabled &&
+                            capability.supportsReasoningEffort) ...[
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
+                            key: ValueKey('${_provider.name}-$_effort'),
                             initialValue: _effort,
                             decoration: const InputDecoration(
                               labelText: '思考强度',
@@ -715,6 +742,19 @@ class _AiServiceConfigEditPageState extends State<AiServiceConfigEditPage> {
         ),
       ),
     );
+  }
+
+  String _thinkingDescription(AiServiceConfig config) {
+    if (config.thinkingAlwaysEnabled) return '该模型始终启用思考模式';
+    if (!config.supportsThinkingToggle) return '该模型不支持配置思考模式';
+    if (!config.supportsReasoningEffort) {
+      return '官方接口仅支持开启或关闭，不提供强度档位';
+    }
+    if (_provider == AiProviderKind.deepSeek ||
+        _provider == AiProviderKind.kimi) {
+      return '支持 low、high、max 三档强度';
+    }
+    return '目标模型不支持时，连接测试会返回错误';
   }
 }
 
