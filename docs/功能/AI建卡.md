@@ -1,7 +1,7 @@
 ---
 status: active
 title: AI 建卡
-last_verified: 2026-08-13
+last_verified: 2026-08-14
 related_code:
   - lib/pages/ai_character_creation_page.dart
   - lib/pages/ai_service_configs_page.dart
@@ -22,7 +22,16 @@ AI 建卡只用于创建新角色。它不会编辑已有角色，也不会给�
 
 ## AI 服务配置
 
-用户保存具名 DeepSeek 或 OpenAI 协议配置，包括 Base URL、模型、思考开关和强度。配置元数据位于普通偏好，API Key 以配置 UUID 为键保存在系统安全存储。
+用户可以保存具名 DeepSeek、Kimi、MiMo 或 OpenAI 协议配置，包括 Base URL、模型和该服务实际支持的思考设置。DeepSeek、Kimi 与 MiMo 使用官方 Base URL，其中 Kimi 仅支持中国大陆开放平台 `https://api.moonshot.cn/v1`；OpenAI 协议允许填写其它 HTTPS Base URL。MiMo Token Plan 的专属地址可作为 OpenAI 协议配置使用。配置元数据位于普通偏好，API Key 以配置 UUID 为键保存在系统安全存储。
+
+思考控件按官方模型能力显示：
+
+- DeepSeek 支持开关以及 `low/high/max` 三档强度。
+- Kimi K3 始终思考，支持 `low/high/max` 三档强度；Kimi K2.7 Code 始终思考但没有强度档位；Kimi K2.6/K2.5 只支持开关。其它 Kimi 模型不显示未经官方声明的思考设置。
+- MiMo V2.5 系列只支持开关，不提供思考强度档位。
+- OpenAI 协议继续提供通用开关与 `low/medium/high/xhigh/max`，由连接测试确认目标服务是否兼容。
+
+原生配置均可通过 `/models` 获取模型。MiMo 模型选择会排除 ASR 和 TTS 等不能用于文字结构化建卡的模型。协议与参数以 [DeepSeek 思考模式](https://api-docs.deepseek.com/guides/thinking_mode/)、[Kimi 中国大陆 API 概览](https://platform.kimi.com/docs/api/overview)、[Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[Kimi Reasoning Effort](https://platform.kimi.com/docs/guide/use-reasoning-effort)、[MiMo 深度思考](https://mimo.mi.com/docs/usage-guide/passing-back-reasoning_content)和 [MiMo 模型列表](https://mimo.mi.com/docs/en-US/api/model/list-models)为基线。
 
 请求使用 `/chat/completions` 与 JSON object 模式，不发送温度或 token 上限。角色生成请求的客户端超时为 10 分钟，以容纳较慢的推理模型；模型列表请求仍为 30 秒，连接测试为 2 分钟。连接测试、四阶段系统提示、修复提示和动态说明均使用中文，集中位于 `lib/services/ai_character_prompts.dart`。API Key、完整提示词、响应和思考内容不进入日志或本地文件。
 
