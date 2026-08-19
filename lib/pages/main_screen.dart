@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../widgets/app_ui.dart';
 import 'adventure_page.dart';
 import 'character_list_page.dart';
+import 'dm/dm_page.dart';
 import 'more_page.dart';
 
 class MainScreen extends StatefulWidget {
@@ -19,6 +20,10 @@ class _MainScreenState extends State<MainScreen> {
   static const _pages = [
     _MainDestination(Icons.groups_2_outlined, Icons.groups_2),
     _MainDestination(Icons.explore_outlined, Icons.explore),
+    _MainDestination(
+      Icons.admin_panel_settings_outlined,
+      Icons.admin_panel_settings,
+    ),
     _MainDestination(Icons.more_horiz, Icons.more_horiz),
   ];
 
@@ -42,7 +47,8 @@ class _MainScreenState extends State<MainScreen> {
     return switch (index) {
       0 => CharacterListPage(onStartAdventure: _startAdventure),
       1 => AdventurePage(initialCharacterId: _adventureEntryCharacterId),
-      2 => const MorePage(),
+      2 => const DmPage(),
+      3 => const MorePage(),
       _ => CharacterListPage(onStartAdventure: _startAdventure),
     };
   }
@@ -58,6 +64,11 @@ class _MainScreenState extends State<MainScreen> {
       icon: Icon(_pages[1].icon),
       selectedIcon: Icon(_pages[1].selectedIcon),
       label: '冒险',
+    ),
+    NavigationDestination(
+      icon: Icon(_pages[2].icon),
+      selectedIcon: Icon(_pages[2].selectedIcon),
+      label: 'DM',
     ),
     NavigationDestination(
       icon: Badge(
@@ -140,7 +151,7 @@ class _MainScreenState extends State<MainScreen> {
                       child: IconButton.filledTonal(
                         icon: const Icon(Icons.more_horiz),
                         tooltip: '更多',
-                        onPressed: () => _onItemTapped(2),
+                        onPressed: () => _onItemTapped(3),
                       ),
                     ),
                   ),
@@ -158,15 +169,20 @@ class _MainScreenState extends State<MainScreen> {
                   label: const Text('冒险'),
                 ),
                 NavigationRailDestination(
+                  icon: Icon(_pages[2].icon),
+                  selectedIcon: Icon(_pages[2].selectedIcon),
+                  label: const Text('DM'),
+                ),
+                NavigationRailDestination(
                   icon: Badge(
                     isLabelVisible: UpdateService.instance.hasNewVersion,
                     smallSize: 8,
-                    child: Icon(_pages[2].icon),
+                    child: Icon(_pages[3].icon),
                   ),
                   selectedIcon: Badge(
                     isLabelVisible: UpdateService.instance.hasNewVersion,
                     smallSize: 8,
-                    child: Icon(_pages[2].selectedIcon),
+                    child: Icon(_pages[3].selectedIcon),
                   ),
                   label: const Text('更多'),
                 ),

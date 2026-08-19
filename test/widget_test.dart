@@ -17,6 +17,7 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('角色'), findsOneWidget);
     expect(find.text('冒险'), findsOneWidget);
+    expect(find.text('DM'), findsOneWidget);
     expect(find.text('更多'), findsOneWidget);
 
     final navigationBar = tester.widget<NavigationBar>(

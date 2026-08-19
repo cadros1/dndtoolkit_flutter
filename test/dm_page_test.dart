@@ -1,0 +1,228 @@
+import 'dart:io';
+
+import 'package:dndtoolkit_flutter/models/dm_models.dart';
+import 'package:dndtoolkit_flutter/pages/dm/dm_page.dart';
+import 'package:dndtoolkit_flutter/services/dm_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('DM page exposes NPC library and current encounter sections', (
+    tester,
+  ) async {
+    final storage = _MemoryDmStorage();
+
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(MaterialApp(home: DmPage(storage: storage)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('NPC 库'), findsOneWidget);
+    expect(find.text('当前遭遇'), findsOneWidget);
+    expect(find.text('DM'), findsNothing);
+    expect(find.text('还没有 NPC 卡'), findsOneWidget);
+    expect(find.text('新建 NPC'), findsOneWidget);
+
+    await tester.tap(find.text('当前遭遇'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('当前遭遇为空'), findsOneWidget);
+    expect(find.text('添加 NPC'), findsWidgets);
+    expect(find.text('创建集群'), findsOneWidget);
+    expect(find.text('掷骰'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('DM library stays usable on a small Android viewport', (
+    tester,
+  ) async {
+    final data = DmData(
+      cards: [
+        NpcCard(
+          name: '有较长名称的城镇守卫队长',
+          sizeAndType: '中型类人生物',
+          maximumHitPoints: 27,
+          armorClass: 16,
+          speed: '30 尺，攀爬 20 尺',
+          challengeRating: '1/2',
+        ),
+      ],
+    );
+    final storage = _MemoryDmStorage(initial: data);
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(MaterialApp(home: DmPage(storage: storage)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('有较长名称的城镇守卫队长'), findsOneWidget);
+    expect(find.text('加入遭遇'), findsNothing);
+    expect(find.text('HP'), findsNothing);
+    expect(find.text('AC'), findsNothing);
+    expect(find.textContaining('速度'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'current encounter uses the wide master-detail layout without overflow',
+    (tester) async {
+      final data = DmData();
+      final card = NpcCard(
+        name: '地精',
+        sizeAndType: '小型类人生物',
+        maximumHitPoints: 7,
+        armorClass: 15,
+      );
+      data.cards.add(card);
+      final instances = data.addInstances(card, ['地精 1', '地精 2', '地精 3']);
+      instances.first.initiative = 14;
+      final group = EncounterGroup(name: '地精小队', initiative: 12);
+      data.encounter.groups.add(group);
+      data.assignInstancesToGroup(
+        instances.skip(1).map((instance) => instance.id),
+        group.id,
+      );
+      final storage = _MemoryDmStorage(initial: data);
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(MaterialApp(home: DmPage(storage: storage)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('当前遭遇'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.textContaining('地精小队'), findsOneWidget);
+      expect(find.text('选择一个 NPC'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('group initiative can be set from the initiative target', (
+    tester,
+  ) async {
+    final data = DmData();
+    final group = EncounterGroup(name: '狼群');
+    data.encounter.groups.add(group);
+    final storage = _MemoryDmStorage(initial: data);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(MaterialApp(home: DmPage(storage: storage)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('当前遭遇'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('—'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '17');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(group.initiative, 17);
+    expect(find.text('17'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('NPCs added from a group menu join that group directly', (
+    tester,
+  ) async {
+    final data = DmData(cards: [NpcCard(name: '狼', maximumHitPoints: 11)]);
+    final group = EncounterGroup(name: '狼群');
+    data.encounter.groups.add(group);
+    final storage = _MemoryDmStorage(initial: data);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(MaterialApp(home: DmPage(storage: storage)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('当前遭遇'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('集群操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(PopupMenuItem<String>, '添加 NPC'));
+    await tester.pumpAndSettle();
+    expect(find.text('添加 NPC 到「狼群」'), findsOneWidget);
+
+    await tester.tap(find.text('加入遭遇'));
+    await tester.pumpAndSettle();
+
+    expect(data.encounter.instances, hasLength(1));
+    expect(data.encounter.instances.single.groupId, group.id);
+    expect(find.text('狼 · AC 10'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('DM page survives repeated responsive reconstruction', (
+    tester,
+  ) async {
+    final storage = _MemoryDmStorage();
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    Widget app() => MaterialApp(
+      home: LayoutBuilder(
+        builder: (context, constraints) => KeyedSubtree(
+          key: ValueKey(constraints.maxWidth >= 720),
+          child: DmPage(storage: storage),
+        ),
+      ),
+    );
+
+    tester.view.physicalSize = const Size(700, 700);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(900, 700);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(700, 700);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('无法读取 DM 数据'), findsNothing);
+    expect(find.text('NPC 库'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _MemoryDmStorage extends DmStorage {
+  DmData data;
+
+  _MemoryDmStorage({DmData? initial}) : data = initial ?? DmData();
+
+  @override
+  Future<DmData> load() async => data;
+
+  @override
+  Future<File> save(DmData data) async {
+    this.data = data;
+    return File('memory');
+  }
+}
