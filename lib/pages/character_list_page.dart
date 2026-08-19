@@ -13,7 +13,9 @@ import 'ai_character_creation_page.dart';
 import 'character_edit_page.dart';
 
 class CharacterListPage extends StatefulWidget {
-  const CharacterListPage({super.key});
+  final ValueChanged<String> onStartAdventure;
+
+  const CharacterListPage({super.key, required this.onStartAdventure});
 
   @override
   State<CharacterListPage> createState() => _CharacterListPageState();
@@ -362,10 +364,21 @@ class _CharacterListPageState extends State<CharacterListPage> {
                 tooltip: '角色操作',
                 icon: const Icon(Icons.more_vert),
                 onSelected: (value) {
+                  if (value == 'adventure') {
+                    widget.onStartAdventure(char.id);
+                  }
                   if (value == 'export') _exportCharacter(char);
                   if (value == 'delete') _deleteCharacter(char);
                 },
                 itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'adventure',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.explore_outlined),
+                      title: Text('进行冒险'),
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'export',
                     child: ListTile(

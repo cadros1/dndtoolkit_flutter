@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/character.dart';
+import '../services/adventure_selection_service.dart';
 import '../services/adventure_rules.dart';
 import '../services/character_storage.dart';
 import '../theme/app_theme.dart';
@@ -10,7 +11,9 @@ import '../widgets/app_ui.dart';
 import '../widgets/death_save_card.dart';
 
 class AdventurePage extends StatefulWidget {
-  const AdventurePage({super.key});
+  final String? initialCharacterId;
+
+  const AdventurePage({super.key, this.initialCharacterId});
 
   @override
   State<AdventurePage> createState() => _AdventurePageState();
@@ -19,6 +22,8 @@ class AdventurePage extends StatefulWidget {
 class _AdventurePageState extends State<AdventurePage>
     with WidgetsBindingObserver {
   final CharacterStorage _storage = CharacterStorage();
+  final AdventureSelectionService _selectionService =
+      AdventureSelectionService.instance;
   final Random _random = Random();
   List<Character> _characters = [];
   Character? _selectedChar;
@@ -61,17 +66,44 @@ class _AdventurePageState extends State<AdventurePage>
 
   Future<void> _loadData() async {
     final list = await _storage.loadAllCharacters();
-    if (list.isNotEmpty && _normalizeCharacterHealth(list.first)) {
-      await _storage.saveCharacter(list.first);
+
+    String? preferredId = widget.initialCharacterId;
+    if (preferredId == null) {
+      try {
+        preferredId = await _selectionService.getSelectedCharacterId();
+      } on Exception {
+        // 选择记忆是可选增强，读取失败不能阻止本地冒险功能。
+      }
     }
+
+    Character? selected;
+    if (preferredId != null) {
+      for (final character in list) {
+        if (character.id == preferredId) {
+          selected = character;
+          break;
+        }
+      }
+    }
+    selected ??= list.isEmpty ? null : list.first;
+
+    if (selected != null && _normalizeCharacterHealth(selected)) {
+      await _storage.saveCharacter(selected);
+    }
+    if (selected != null) {
+      await _rememberSelectedCharacter(selected.id);
+    } else {
+      try {
+        await _selectionService.clearSelectedCharacterId();
+      } on Exception {
+        // 同上，不让偏好存储失败影响空状态展示。
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       _characters = list;
-      if (_characters.isNotEmpty) {
-        _selectedChar = _characters.first;
-      } else {
-        _selectedChar = null;
-      }
+      _selectedChar = selected;
       _currentOption = RollOption.free();
       _extraBonus = 0;
       _lastDeathSaveRoll = null;
@@ -123,6 +155,15 @@ class _AdventurePageState extends State<AdventurePage>
       _extraBonus = 0;
       _lastDeathSaveRoll = null;
     });
+    await _rememberSelectedCharacter(character.id);
+  }
+
+  Future<void> _rememberSelectedCharacter(String characterId) async {
+    try {
+      await _selectionService.saveSelectedCharacterId(characterId);
+    } on Exception {
+      // 记忆失败不影响角色切换和状态操作。
+    }
   }
 
   // --- 页面主体布局 ---

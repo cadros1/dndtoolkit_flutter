@@ -14,6 +14,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  String? _adventureEntryCharacterId;
 
   static const _pages = [
     _MainDestination(Icons.groups_2_outlined, Icons.groups_2),
@@ -24,7 +25,26 @@ class _MainScreenState extends State<MainScreen> {
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      if (index != 1) {
+        _adventureEntryCharacterId = null;
+      }
     });
+  }
+
+  void _startAdventure(String characterId) {
+    setState(() {
+      _adventureEntryCharacterId = characterId;
+      _selectedIndex = 1;
+    });
+  }
+
+  Widget _buildPage(int index) {
+    return switch (index) {
+      0 => CharacterListPage(onStartAdventure: _startAdventure),
+      1 => AdventurePage(initialCharacterId: _adventureEntryCharacterId),
+      2 => const MorePage(),
+      _ => CharacterListPage(onStartAdventure: _startAdventure),
+    };
   }
 
   // ---- 导航目标列表（移动端和桌面端共用） ----
@@ -177,15 +197,4 @@ class _MainDestination {
   final IconData selectedIcon;
 
   const _MainDestination(this.icon, this.selectedIcon);
-}
-
-/// 页面切换：不使用 IndexedStack，直接切换 Widget
-/// 这会导致旧页面 dispose，新页面 initState，满足"每次进入重新读取数据"的需求
-Widget _buildPage(int index) {
-  return switch (index) {
-    0 => const CharacterListPage(),
-    1 => const AdventurePage(),
-    2 => const MorePage(),
-    _ => const CharacterListPage(),
-  };
 }
