@@ -14,9 +14,11 @@ void main() {
 
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 44);
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
     });
 
     await tester.pumpWidget(MaterialApp(home: DmPage(storage: storage)));
@@ -26,6 +28,7 @@ void main() {
     expect(find.text('NPC 库'), findsOneWidget);
     expect(find.text('当前遭遇'), findsOneWidget);
     expect(find.text('DM'), findsNothing);
+    expect(tester.getTopLeft(find.text('NPC 库')).dy, greaterThanOrEqualTo(44));
     expect(find.text('还没有 NPC 卡'), findsOneWidget);
     expect(find.text('新建 NPC'), findsOneWidget);
 

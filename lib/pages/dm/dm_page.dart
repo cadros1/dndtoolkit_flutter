@@ -549,26 +549,28 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
 
     final data = _data!;
     return Scaffold(
-      body: Column(
-        children: [
-          _secondaryNavigation(),
-          Expanded(
-            child: _section == 0
-                ? NpcLibraryView(
-                    data: data,
-                    onEdit: _editCard,
-                    onDuplicate: _duplicateCard,
-                    onMoveCategory: _moveCardCategory,
-                    onDelete: _deleteCard,
-                    onManageCategories: _manageCategories,
-                  )
-                : CurrentEncounterView(
-                    data: data,
-                    onChanged: _save,
-                    onAddNpc: _addInstances,
-                  ),
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _secondaryNavigation(),
+            Expanded(
+              child: _section == 0
+                  ? NpcLibraryView(
+                      data: data,
+                      onEdit: _editCard,
+                      onDuplicate: _duplicateCard,
+                      onMoveCategory: _moveCardCategory,
+                      onDelete: _deleteCard,
+                      onManageCategories: _manageCategories,
+                    )
+                  : CurrentEncounterView(
+                      data: data,
+                      onChanged: _save,
+                      onAddNpc: _addInstances,
+                    ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton:
           _section == 0 &&
