@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dndtoolkit_flutter/models/dm_models.dart';
 import 'package:dndtoolkit_flutter/pages/dm/dm_page.dart';
 import 'package:dndtoolkit_flutter/services/dm_storage.dart';
+import 'package:dndtoolkit_flutter/services/npc_markdown_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -213,6 +214,50 @@ void main() {
     expect(find.text('NPC 库'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Markdown import creates new cards and a missing category', (
+    tester,
+  ) async {
+    final existing = NpcCard(name: '同名守卫', maximumHitPoints: 10);
+    final data = DmData(cards: [existing]);
+    final storage = _MemoryDmStorage(initial: data);
+    final importResult = NpcMarkdownCodec.parse(
+      'guard.md',
+      NpcMarkdownCodec.exportCard(
+        NpcCard(name: '同名守卫', maximumHitPoints: 22, armorClass: 16),
+        categoryName: '城镇',
+      ),
+    );
+    final markdownService = _FakeMarkdownService([importResult]);
+    tester.view.physicalSize = const Size(1100, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DmPage(storage: storage, markdownService: markdownService),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '导入'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导入所选 1 张'));
+    await tester.pumpAndSettle();
+
+    expect(data.cards, hasLength(2));
+    expect(data.cards.map((card) => card.name), everyElement('同名守卫'));
+    expect(data.cards.last.id, isNot(existing.id));
+    expect(data.cards.last.maximumHitPoints, 22);
+    final town = data.categories.singleWhere(
+      (category) => category.name == '城镇',
+    );
+    expect(data.cards.last.categoryId, town.id);
+    expect(find.text('已导入 1 张 NPC 卡'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _MemoryDmStorage extends DmStorage {
@@ -228,4 +273,13 @@ class _MemoryDmStorage extends DmStorage {
     this.data = data;
     return File('memory');
   }
+}
+
+class _FakeMarkdownService extends NpcMarkdownService {
+  final List<NpcMarkdownImportResult> results;
+
+  _FakeMarkdownService(this.results);
+
+  @override
+  Future<List<NpcMarkdownImportResult>?> pickImportFiles() async => results;
 }

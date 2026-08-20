@@ -7,8 +7,11 @@ class NpcLibraryView extends StatefulWidget {
   final DmData data;
   final Future<void> Function(NpcCard? card) onEdit;
   final Future<void> Function(NpcCard card) onDuplicate;
+  final Future<void> Function(NpcCard card) onExport;
   final Future<void> Function(NpcCard card) onMoveCategory;
   final Future<void> Function(NpcCard card) onDelete;
+  final Future<void> Function() onImport;
+  final Future<void> Function() onExportBlankTemplate;
   final Future<void> Function() onManageCategories;
 
   const NpcLibraryView({
@@ -16,8 +19,11 @@ class NpcLibraryView extends StatefulWidget {
     required this.data,
     required this.onEdit,
     required this.onDuplicate,
+    required this.onExport,
     required this.onMoveCategory,
     required this.onDelete,
+    required this.onImport,
+    required this.onExportBlankTemplate,
     required this.onManageCategories,
   });
 
@@ -134,6 +140,8 @@ class _NpcLibraryViewState extends State<NpcLibraryView> {
                   tooltip: '更多操作',
                   onSelected: (value) {
                     switch (value) {
+                      case 'export':
+                        widget.onExport(card);
                       case 'copy':
                         widget.onDuplicate(card);
                       case 'move':
@@ -143,6 +151,7 @@ class _NpcLibraryViewState extends State<NpcLibraryView> {
                     }
                   },
                   itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'export', child: Text('导出 Markdown')),
                     PopupMenuItem(value: 'copy', child: Text('复制')),
                     PopupMenuItem(value: 'move', child: Text('移动分类')),
                     PopupMenuItem(value: 'delete', child: Text('删除')),
@@ -211,10 +220,24 @@ class _NpcLibraryViewState extends State<NpcLibraryView> {
               children: [
                 Expanded(child: _categoryDropdown()),
                 const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  tooltip: '管理分类',
-                  onPressed: widget.onManageCategories,
-                  icon: const Icon(Icons.folder_copy_outlined),
+                PopupMenuButton<String>(
+                  tooltip: 'NPC 库操作',
+                  icon: const Icon(Icons.more_horiz),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'import':
+                        widget.onImport();
+                      case 'template':
+                        widget.onExportBlankTemplate();
+                      case 'categories':
+                        widget.onManageCategories();
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'import', child: Text('导入 Markdown')),
+                    PopupMenuItem(value: 'template', child: Text('导出空白模板')),
+                    PopupMenuItem(value: 'categories', child: Text('管理分类')),
+                  ],
                 ),
               ],
             ),
@@ -283,6 +306,24 @@ class _NpcLibraryViewState extends State<NpcLibraryView> {
                   children: [
                     Expanded(child: _searchField()),
                     const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: widget.onImport,
+                      icon: const Icon(Icons.file_open_outlined),
+                      label: const Text('导入'),
+                    ),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      tooltip: 'NPC 库操作',
+                      onSelected: (value) {
+                        if (value == 'template') {
+                          widget.onExportBlankTemplate();
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'template', child: Text('导出空白模板')),
+                      ],
+                    ),
+                    const SizedBox(width: 4),
                     FilledButton.icon(
                       onPressed: () => widget.onEdit(null),
                       icon: const Icon(Icons.add),

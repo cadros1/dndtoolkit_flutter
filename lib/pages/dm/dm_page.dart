@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../models/dm_models.dart';
 import '../../services/dm_storage.dart';
+import '../../services/npc_markdown_service.dart';
 import '../../widgets/app_ui.dart';
 import 'current_encounter_view.dart';
 import 'npc_card_edit_page.dart';
 import 'npc_library_view.dart';
+import 'npc_markdown_import_page.dart';
 
 class DmPage extends StatefulWidget {
   final DmStorage? storage;
+  final NpcMarkdownService? markdownService;
 
-  const DmPage({super.key, this.storage});
+  const DmPage({super.key, this.storage, this.markdownService});
 
   @override
   State<DmPage> createState() => _DmPageState();
@@ -18,6 +21,7 @@ class DmPage extends StatefulWidget {
 
 class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
   late final DmStorage _storage;
+  late final NpcMarkdownService _markdownService;
   DmData? _data;
   Object? _loadError;
   bool _loading = true;
@@ -27,6 +31,7 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _storage = widget.storage ?? DmStorage();
+    _markdownService = widget.markdownService ?? NpcMarkdownService();
     WidgetsBinding.instance.addObserver(this);
     _load();
   }
@@ -112,6 +117,121 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
         context,
       ).showSnackBar(SnackBar(content: Text('已复制「$base」')));
     }
+  }
+
+  Future<void> _exportCard(NpcCard card) async {
+    final data = _data!;
+    final categoryName = data.categories
+        .where((category) => category.id == card.categoryId)
+        .map((category) => category.name)
+        .firstOrNull;
+    try {
+      final result = await _markdownService.exportCard(
+        card,
+        categoryName: categoryName ?? defaultNpcCategoryName,
+      );
+      if (!mounted ||
+          result.disposition == NpcMarkdownExportDisposition.cancelled) {
+        return;
+      }
+      final action = result.disposition == NpcMarkdownExportDisposition.saved
+          ? '已导出'
+          : '已打开分享面板';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$action ${result.fileName}')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('NPC 卡导出失败：$error')));
+    }
+  }
+
+  Future<void> _exportBlankTemplate() async {
+    try {
+      final result = await _markdownService.exportBlankTemplate();
+      if (!mounted ||
+          result.disposition == NpcMarkdownExportDisposition.cancelled) {
+        return;
+      }
+      final action = result.disposition == NpcMarkdownExportDisposition.saved
+          ? '已导出'
+          : '已打开分享面板';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$action ${result.fileName}')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('空白模板导出失败：$error')));
+    }
+  }
+
+  Future<void> _importCards() async {
+    List<NpcMarkdownImportResult>? results;
+    try {
+      results = await _markdownService.pickImportFiles();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Markdown 文件读取失败：$error')));
+      return;
+    }
+    if (!mounted || results == null) return;
+    if (results.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('没有选择 Markdown 文件')));
+      return;
+    }
+
+    final selections = await Navigator.push<List<NpcMarkdownImportSelection>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NpcMarkdownImportPage(
+          results: results!,
+          categories: List.of(_data!.sortedCategories),
+        ),
+      ),
+    );
+    if (!mounted || selections == null || selections.isEmpty) return;
+
+    final data = _data!;
+    for (final selection in selections) {
+      var categoryId = selection.categoryId ?? defaultNpcCategoryId;
+      final categoryName = selection.categoryNameToCreate?.trim() ?? '';
+      if (categoryName.isNotEmpty) {
+        final existing = data.categories
+            .where(
+              (category) =>
+                  category.name.trim().toLowerCase() ==
+                  categoryName.toLowerCase(),
+            )
+            .firstOrNull;
+        if (existing != null) {
+          categoryId = existing.id;
+        } else {
+          final category = NpcCategory(
+            name: categoryName,
+            sortOrder: data.categories.length,
+          );
+          data.categories.add(category);
+          categoryId = category.id;
+        }
+      }
+      final card = selection.result.card!.deepCopy(newIdentity: true)
+        ..categoryId = categoryId;
+      data.cards.add(card);
+    }
+    data.ensureDefaultCategory();
+    await _save();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已导入 ${selections.length} 张 NPC 卡')));
   }
 
   Future<void> _deleteCard(NpcCard card) async {
@@ -559,8 +679,11 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
                       data: data,
                       onEdit: _editCard,
                       onDuplicate: _duplicateCard,
+                      onExport: _exportCard,
                       onMoveCategory: _moveCardCategory,
                       onDelete: _deleteCard,
+                      onImport: _importCards,
+                      onExportBlankTemplate: _exportBlankTemplate,
                       onManageCategories: _manageCategories,
                     )
                   : CurrentEncounterView(
@@ -583,4 +706,8 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
           : null,
     );
   }
+}
+
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
 }
