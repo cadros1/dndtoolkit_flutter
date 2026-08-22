@@ -126,5 +126,173 @@ void main() {
       expect(restored.encounter.instances.single.temporaryHitPoints, 2);
       expect(restored.encounter.instances.single.initiative, 9);
     });
+
+    test(
+      'encounter preset round trip preserves lineup and group arrangement',
+      () {
+        final card = NpcCard(name: '哥布林', maximumHitPoints: 7, armorClass: 15);
+        final group = EncounterPresetGroup(name: '伏击组');
+        final preset = EncounterPreset(
+          name: '林间伏击',
+          groups: [group],
+          entries: [
+            EncounterPresetEntry.fromCard(card, count: 2, groupId: group.id)
+              ..instanceNames = ['斥候', '弓手'],
+          ],
+        );
+
+        final restored = EncounterPreset.fromJson(preset.toJson());
+
+        expect(restored.name, '林间伏击');
+        expect(restored.instanceCount, 2);
+        expect(restored.groups.single.name, '伏击组');
+        expect(restored.entries.single.instanceNames, ['斥候', '弓手']);
+        expect(restored.entries.single.cardSnapshot.name, '哥布林');
+        expect(restored.entries.single.groupId, restored.groups.single.id);
+      },
+    );
+
+    test('starting a preset creates fresh runtime state from snapshots', () {
+      final source = NpcCard(name: '狼', maximumHitPoints: 11, armorClass: 13);
+      final group = EncounterPresetGroup(name: '狼群');
+      final preset = EncounterPreset(
+        name: '狼群突袭',
+        groups: [group],
+        entries: [
+          EncounterPresetEntry.fromCard(source, count: 2, groupId: group.id)
+            ..instanceNames = ['灰背', '断耳'],
+        ],
+      );
+
+      final encounter = preset.createEncounter();
+
+      expect(encounter.groups, hasLength(1));
+      expect(encounter.groups.single.initiative, isNull);
+      expect(encounter.instances, hasLength(2));
+      expect(encounter.instances.map((item) => item.displayName), ['灰背', '断耳']);
+      expect(
+        encounter.instances.map((item) => item.currentHitPoints),
+        everyElement(11),
+      );
+      expect(
+        encounter.instances.map((item) => item.temporaryHitPoints),
+        everyElement(0),
+      );
+      expect(
+        encounter.instances.map((item) => item.initiative),
+        everyElement(isNull),
+      );
+      expect(
+        encounter.instances.map((item) => item.groupId),
+        everyElement(encounter.groups.single.id),
+      );
+
+      source
+        ..name = '已修改模板'
+        ..maximumHitPoints = 99;
+      expect(encounter.instances.first.cardSnapshot.name, '狼');
+      expect(encounter.instances.first.maximumHitPoints, 11);
+    });
+
+    test('preset keeps independent NPC and groups in one top-level order', () {
+      final group = EncounterPresetGroup(name: '后排', sortOrder: 1);
+      final independent = EncounterPresetEntry.fromCard(
+        NpcCard(name: '斥候'),
+        sortOrder: 0,
+      );
+      final member = EncounterPresetEntry.fromCard(
+        NpcCard(name: '弓手'),
+        groupId: group.id,
+        sortOrder: 0,
+      );
+      final preset = EncounterPreset(
+        name: '前后夹击',
+        groups: [group],
+        entries: [member, independent],
+      );
+
+      final restored = EncounterPreset.fromJson(preset.toJson());
+      final encounter = restored.createEncounter();
+      final restoredIndependent = restored.entries.singleWhere(
+        (entry) => entry.groupId == null,
+      );
+
+      expect(restoredIndependent.sortOrder, 0);
+      expect(restored.groups.single.sortOrder, 1);
+      expect(encounter.instances.first.displayName, '斥候');
+      expect(encounter.instances.first.groupId, isNull);
+      expect(encounter.groups.single.sortOrder, 1);
+      expect(
+        encounter.instances
+            .singleWhere((instance) => instance.displayName == '弓手')
+            .groupId,
+        encounter.groups.single.id,
+      );
+    });
+
+    test(
+      'current encounter extraction omits HP, temporary HP and initiative',
+      () {
+        final card = NpcCard(name: '骷髅', maximumHitPoints: 13);
+        final data = DmData(cards: [card]);
+        final group = EncounterGroup(name: '墓穴守卫', initiative: 17);
+        data.encounter.groups.add(group);
+        final instances = data.addInstances(card, ['左侧骷髅', '右侧骷髅']);
+        data.assignInstancesToGroup(
+          instances.map((instance) => instance.id),
+          group.id,
+        );
+        instances.first
+          ..setCurrentHitPoints(2)
+          ..setTemporaryHitPoints(5);
+
+        final preset = EncounterPreset.fromEncounter(
+          data.encounter,
+          name: '墓穴入口',
+        );
+        final created = preset.createEncounter();
+
+        expect(preset.entries.single.count, 2);
+        expect(preset.entries.single.instanceNames, ['左侧骷髅', '右侧骷髅']);
+        expect(created.groups.single.name, '墓穴守卫');
+        expect(created.groups.single.initiative, isNull);
+        expect(
+          created.instances.map((instance) => instance.currentHitPoints),
+          everyElement(13),
+        );
+        expect(
+          created.instances.map((instance) => instance.temporaryHitPoints),
+          everyElement(0),
+        );
+      },
+    );
+
+    test(
+      'duplicating a preset gives the preset structure fresh identities',
+      () {
+        final group = EncounterPresetGroup(name: '前排');
+        final original = EncounterPreset(
+          name: '守门战',
+          groups: [group],
+          entries: [
+            EncounterPresetEntry.fromCard(
+              NpcCard(name: '守卫'),
+              groupId: group.id,
+            ),
+          ],
+        );
+
+        final duplicate = original.deepCopy(newIdentity: true, name: '守门战（副本）');
+
+        expect(duplicate.id, isNot(original.id));
+        expect(duplicate.groups.single.id, isNot(original.groups.single.id));
+        expect(duplicate.entries.single.id, isNot(original.entries.single.id));
+        expect(duplicate.entries.single.groupId, duplicate.groups.single.id);
+        expect(
+          duplicate.entries.single.cardSnapshot.id,
+          original.entries.single.cardSnapshot.id,
+        );
+      },
+    );
   });
 }

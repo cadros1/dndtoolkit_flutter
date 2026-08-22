@@ -22,6 +22,7 @@ void main() {
 
     expect(data.cards, isEmpty);
     expect(data.categories.single.id, defaultNpcCategoryId);
+    expect(data.presets, isEmpty);
     expect(data.encounter.isEmpty, isTrue);
   });
 
@@ -33,6 +34,12 @@ void main() {
       maximumHitPoints: 13,
     );
     final data = DmData(categories: [category], cards: [card]);
+    data.presets.add(
+      EncounterPreset(
+        name: '墓穴入口',
+        entries: [EncounterPresetEntry.fromCard(card, count: 2)],
+      ),
+    );
     data.addInstances(card, ['骷髅 1']).single.setCurrentHitPoints(6);
 
     await storage.save(data);
@@ -40,6 +47,8 @@ void main() {
 
     expect(restored.categories.map((item) => item.name), contains('亡灵'));
     expect(restored.cards.single.name, '骷髅');
+    expect(restored.presets.single.name, '墓穴入口');
+    expect(restored.presets.single.instanceCount, 2);
     expect(restored.encounter.instances.single.currentHitPoints, 6);
     expect(
       File(
@@ -59,7 +68,7 @@ void main() {
 
   test('a newer schema is rejected and preserved for a newer app', () async {
     final file = File('${directory.path}${Platform.pathSeparator}dm_data.json');
-    const content = '{"DnDToolkit-DM":3,"FutureField":"keep me"}';
+    const content = '{"DnDToolkit-DM":4,"FutureField":"keep me"}';
     await file.writeAsString(content);
 
     await expectLater(storage.load(), throwsA(isA<FormatException>()));
@@ -92,5 +101,18 @@ void main() {
     expect(restored.categories.single.id, defaultNpcCategoryId);
     expect(restored.cards.single.categoryId, defaultNpcCategoryId);
     expect(restored.cards.single.abilities.strengthModifier, 2);
+    expect(restored.presets, isEmpty);
+  });
+
+  test('version 2 data loads with an empty preset collection', () async {
+    final file = File('${directory.path}${Platform.pathSeparator}dm_data.json');
+    await file.writeAsString('''
+{"DnDToolkit-DM":2,"Categories":[],"NpcCards":[],"CurrentEncounter":{}}
+''');
+
+    final restored = await storage.load();
+
+    expect(restored.presets, isEmpty);
+    expect(restored.categories.single.id, defaultNpcCategoryId);
   });
 }
