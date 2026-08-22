@@ -5,6 +5,8 @@ import '../../services/dm_storage.dart';
 import '../../services/npc_markdown_service.dart';
 import '../../widgets/app_ui.dart';
 import 'current_encounter_view.dart';
+import 'encounter_preset_edit_page.dart';
+import 'encounter_preset_view.dart';
 import 'npc_card_edit_page.dart';
 import 'npc_library_view.dart';
 import 'npc_markdown_import_page.dart';
@@ -117,6 +119,121 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
         context,
       ).showSnackBar(SnackBar(content: Text('已复制「$base」')));
     }
+  }
+
+  Future<void> _editPreset(EncounterPreset? source) async {
+    final data = _data!;
+    if (source == null && data.cards.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先在 NPC 库创建 NPC 卡')));
+      setState(() => _section = 0);
+      return;
+    }
+    final result = await Navigator.push<EncounterPreset>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EncounterPresetEditPage(
+          preset: source?.deepCopy() ?? EncounterPreset(),
+          cards: List.of(data.cards),
+        ),
+      ),
+    );
+    if (result == null) return;
+    final index = data.presets.indexWhere((preset) => preset.id == result.id);
+    if (index < 0) {
+      data.presets.add(result);
+    } else {
+      data.presets[index] = result;
+    }
+    await _save();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('遭遇预设已保存')));
+  }
+
+  Future<void> _duplicatePreset(EncounterPreset preset) async {
+    final base = preset.name.trim().isEmpty ? '未命名预设' : preset.name.trim();
+    _data!.presets.add(preset.deepCopy(newIdentity: true, name: '$base（副本）'));
+    await _save();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已复制「$base」')));
+  }
+
+  Future<void> _deletePreset(EncounterPreset preset) async {
+    final name = preset.name.trim().isEmpty ? '未命名预设' : preset.name.trim();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除遭遇预设'),
+        content: Text('确定要删除「$name」吗？当前遭遇不会受到影响。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    _data!.presets.removeWhere((item) => item.id == preset.id);
+    await _save();
+  }
+
+  Future<void> _startPreset(EncounterPreset preset) async {
+    final data = _data!;
+    if (!data.encounter.isEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('替换当前遭遇'),
+          content: const Text('当前遭遇中的实例、集群和运行时状态将被清空，并由该预设创建新的遭遇。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('替换并创建'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    data.encounter = preset.createEncounter();
+    await _save();
+    if (!mounted) return;
+    setState(() => _section = 2);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '已从「${preset.name.trim().isEmpty ? '未命名预设' : preset.name}」创建当前遭遇',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _extractCurrentEncounter() async {
+    final data = _data!;
+    if (data.encounter.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('当前遭遇为空，无法创建预设')));
+      return;
+    }
+    await _editPreset(EncounterPreset.fromEncounter(data.encounter));
   }
 
   Future<void> _exportCard(NpcCard card) async {
@@ -240,7 +357,7 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除 NPC 卡'),
-        content: Text('确定要删除「$name」吗？已经加入当前遭遇的实例会保留自己的卡片快照。'),
+        content: Text('确定要删除「$name」吗？当前遭遇实例和遭遇预设都会保留各自的卡片快照。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -625,31 +742,70 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
-  Widget _secondaryNavigation() => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: SegmentedButton<int>(
-          segments: const [
-            ButtonSegment(
-              value: 0,
-              icon: Icon(Icons.people_alt_outlined),
-              label: Text('NPC 库'),
+  Widget _secondaryNavigation() => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 520;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SegmentedButton<int>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: 0,
+                  icon: compact ? null : const Icon(Icons.people_alt_outlined),
+                  label: const Text('NPC 库'),
+                ),
+                ButtonSegment(
+                  value: 1,
+                  icon: compact ? null : const Icon(Icons.bookmarks_outlined),
+                  label: const Text('遭遇预设'),
+                ),
+                ButtonSegment(
+                  value: 2,
+                  icon: compact ? null : const Icon(Icons.sports_martial_arts),
+                  label: const Text('当前遭遇'),
+                ),
+              ],
+              selected: {_section},
+              onSelectionChanged: (selected) =>
+                  setState(() => _section = selected.first),
             ),
-            ButtonSegment(
-              value: 1,
-              icon: Icon(Icons.sports_martial_arts),
-              label: Text('当前遭遇'),
-            ),
-          ],
-          selected: {_section},
-          onSelectionChanged: (selected) =>
-              setState(() => _section = selected.first),
+          ),
         ),
-      ),
-    ),
+      );
+    },
   );
+
+  Widget _sectionView(DmData data) => switch (_section) {
+    0 => NpcLibraryView(
+      data: data,
+      onEdit: _editCard,
+      onDuplicate: _duplicateCard,
+      onExport: _exportCard,
+      onMoveCategory: _moveCardCategory,
+      onDelete: _deleteCard,
+      onImport: _importCards,
+      onExportBlankTemplate: _exportBlankTemplate,
+      onManageCategories: _manageCategories,
+    ),
+    1 => EncounterPresetView(
+      data: data,
+      onEdit: _editPreset,
+      onDuplicate: _duplicatePreset,
+      onDelete: _deletePreset,
+      onStart: _startPreset,
+      onExtractCurrent: _extractCurrentEncounter,
+    ),
+    _ => CurrentEncounterView(
+      data: data,
+      onChanged: _save,
+      onAddNpc: _addInstances,
+      onSaveAsPreset: _extractCurrentEncounter,
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -673,35 +829,19 @@ class _DmPageState extends State<DmPage> with WidgetsBindingObserver {
         child: Column(
           children: [
             _secondaryNavigation(),
-            Expanded(
-              child: _section == 0
-                  ? NpcLibraryView(
-                      data: data,
-                      onEdit: _editCard,
-                      onDuplicate: _duplicateCard,
-                      onExport: _exportCard,
-                      onMoveCategory: _moveCardCategory,
-                      onDelete: _deleteCard,
-                      onImport: _importCards,
-                      onExportBlankTemplate: _exportBlankTemplate,
-                      onManageCategories: _manageCategories,
-                    )
-                  : CurrentEncounterView(
-                      data: data,
-                      onChanged: _save,
-                      onAddNpc: _addInstances,
-                    ),
-            ),
+            Expanded(child: _sectionView(data)),
           ],
         ),
       ),
       floatingActionButton:
-          _section == 0 &&
-              MediaQuery.sizeOf(context).width < kAppDesktopBreakpoint
+          MediaQuery.sizeOf(context).width < kAppDesktopBreakpoint &&
+              _section < 2
           ? FloatingActionButton.extended(
-              onPressed: () => _editCard(null),
+              onPressed: _section == 0
+                  ? () => _editCard(null)
+                  : () => _editPreset(null),
               icon: const Icon(Icons.add),
-              label: const Text('新建 NPC'),
+              label: Text(_section == 0 ? '新建 NPC' : '新建预设'),
             )
           : null,
     );

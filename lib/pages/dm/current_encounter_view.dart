@@ -11,12 +11,14 @@ class CurrentEncounterView extends StatefulWidget {
   final DmData data;
   final Future<void> Function() onChanged;
   final Future<void> Function([EncounterGroup? targetGroup]) onAddNpc;
+  final Future<void> Function() onSaveAsPreset;
 
   const CurrentEncounterView({
     super.key,
     required this.data,
     required this.onChanged,
     required this.onAddNpc,
+    required this.onSaveAsPreset,
   });
 
   @override
@@ -649,9 +651,14 @@ class _CurrentEncounterViewState extends State<CurrentEncounterView> {
           PopupMenuButton<String>(
             tooltip: '更多操作',
             onSelected: (value) {
-              if (value == 'end') _endEncounter();
+              if (value == 'preset') {
+                widget.onSaveAsPreset();
+              } else if (value == 'end') {
+                _endEncounter();
+              }
             },
             itemBuilder: (context) => const [
+              PopupMenuItem(value: 'preset', child: Text('保存为遭遇预设')),
               PopupMenuItem(value: 'end', child: Text('结束遭遇')),
             ],
             child: const SizedBox.square(
